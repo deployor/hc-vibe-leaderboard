@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
       const { reaction, item } = event;
 
+      console.log("Received reaction event for item:", JSON.stringify(item, null, 2));
+
       const upvoteReactions = ["upvote"];
       const downvoteReactions = ["downvote"];
 
@@ -100,22 +102,33 @@ export async function POST(req: NextRequest) {
       // If message doesn't exist yet, we need to fetch its author to check opt-out status
       if (!message) {
         try {
-          let messageData;
           let parentContent = null;
           let parentUserName = null;
 
-          if (isThreadReply) {
-            // For threaded messages, we need to fetch from the thread
-            const threadHistory = await slack.conversations.replies({ 
-              channel, 
-              ts: threadTs!,
-              inclusive: true 
+          // Use conversations.history to fetch the specific message being reacted to.
+          // This is more reliable than conversations.replies for finding a specific message.
+          const messageHistory = await slack.conversations.history({
+            channel,
+            latest: messageTs,
+            oldest: messageTs,
+            limit: 1,
+            inclusive: true,
+          });
+
+          const messageData = messageHistory.messages?.[0];
+
+          // If it's a thread reply, also fetch the parent message for context
+          if (isThreadReply && threadTs) {
+            console.log(`Fetching parent message for thread reply. Parent ts: ${threadTs}`);
+            const parentHistory = await slack.conversations.history({
+              channel,
+              latest: threadTs,
+              oldest: threadTs,
+              limit: 1,
+              inclusive: true,
             });
-            messageData = threadHistory.messages?.find(msg => msg.ts === messageTs);
-            
-            // Also fetch the parent message for context (it should be the first message in the thread)
-            const parentMessage = threadHistory.messages?.[0];
-            if (parentMessage && parentMessage.ts === threadTs) {
+            const parentMessage = parentHistory.messages?.[0];
+            if (parentMessage) {
               parentContent = parentMessage.text || "";
               if (parentMessage.user) {
                 try {
@@ -126,20 +139,13 @@ export async function POST(req: NextRequest) {
                   parentUserName = "Unknown";
                 }
               }
+            } else {
+              console.log(`Could not fetch parent message for ts: ${threadTs}`);
             }
-            
-            console.log(`Thread reply processing: ts=${messageTs}, threadTs=${threadTs}`);
-            console.log(`  - Reply content: "${messageData?.text?.substring(0, 50)}..."`);
-            console.log(`  - Parent content: "${parentContent?.substring(0, 50)}..."`);
-            console.log(`  - Parent user: ${parentUserName}`);
-            console.log(`  - Thread messages found: ${threadHistory.messages?.length || 0}`);
-          } else {
-            // For regular messages, use conversations.history
-            const history = await slack.conversations.history({ channel, latest: messageTs, limit: 1, inclusive: true });
-            messageData = history.messages?.[0];
           }
 
           if (!messageData || !messageData.user || !messageData.text) {
+            console.error("Message details not found in Slack history for ts:", messageTs, "Response:", messageHistory);
             return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
           }
 
@@ -197,18 +203,20 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        // Message exists, but check if it's a thread reply without parent content
+        // Message exists, but check if it's a thread reply without parent content or correct flag
         if (isThreadReply && (!message.parentContent || !message.parentUserName || !message.isThreadReply)) {
           console.log(`Updating existing thread reply ${messageTs} with missing parent content or incorrect thread status`);
           try {
-            const threadHistory = await slack.conversations.replies({ 
-              channel, 
-              ts: threadTs!,
-              inclusive: true 
+            const parentHistory = await slack.conversations.history({
+              channel,
+              latest: threadTs!,
+              oldest: threadTs!,
+              limit: 1,
+              inclusive: true,
             });
             
-            const parentMessage = threadHistory.messages?.[0];
-            if (parentMessage && parentMessage.ts === threadTs) {
+            const parentMessage = parentHistory.messages?.[0];
+            if (parentMessage) {
               const parentContent = parentMessage.text || "";
               let parentUserName = "Unknown";
               
