@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 const LoginButton = ({ clientId }: { clientId?: string }) => {
   if (!clientId) return null;
   const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL}/api/slack/oauth`;
-  const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=reactions:read,channels:history,groups:history,im:history,mpim:history,users:read&user_scope=&redirect_uri=${redirectUri}`;
+  const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=reactions:read,channels:history,groups:history,im:history,mpim:history,users:read&user_scope=&redirect_uri=${redirectUri}&team=T0266FRGM`;
 
   return (
     <motion.a
@@ -64,7 +64,7 @@ export default function Home() {
             <ArrowBigDown className="text-red-500" size={60} strokeWidth={2.5} />
           </motion.div>
         </div>
-        <p className="text-slate-400 text-xl mb-12">The pulse of your Slack workspace.</p>
+        <p className="text-slate-400 text-xl mb-12">The Reddit of Hack Club.</p>
         
         <LoginButton clientId={process.env.NEXT_PUBLIC_SLACK_CLIENT_ID} />
       </main>
