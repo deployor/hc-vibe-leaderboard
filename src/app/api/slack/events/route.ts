@@ -76,13 +76,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      const { channel, ts } = item;
+      const { channel, ts: messageTs } = item;
       // Check if this is a threaded message
       const threadTs = item.thread_ts;
-      const isThreadReply = threadTs && threadTs !== ts;
+      const isThreadReply = threadTs && parseFloat(threadTs) !== parseFloat(messageTs);
 
       const message = await db.query.messages.findFirst({
-        where: eq(messages.messageTs, ts),
+        where: eq(messages.messageTs, messageTs),
       });
 
       // --- Check if the message author has opted out ---
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
               ts: threadTs!,
               inclusive: true 
             });
-            messageData = threadHistory.messages?.find(msg => msg.ts === ts);
+            messageData = threadHistory.messages?.find(msg => msg.ts === messageTs);
             
             // Also fetch the parent message for context (it should be the first message in the thread)
             const parentMessage = threadHistory.messages?.[0];
@@ -128,14 +128,14 @@ export async function POST(req: NextRequest) {
               }
             }
             
-            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}`);
+            console.log(`Thread reply processing: ts=${messageTs}, threadTs=${threadTs}`);
             console.log(`  - Reply content: "${messageData?.text?.substring(0, 50)}..."`);
             console.log(`  - Parent content: "${parentContent?.substring(0, 50)}..."`);
             console.log(`  - Parent user: ${parentUserName}`);
             console.log(`  - Thread messages found: ${threadHistory.messages?.length || 0}`);
           } else {
             // For regular messages, use conversations.history
-            const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
+            const history = await slack.conversations.history({ channel, latest: messageTs, limit: 1, inclusive: true });
             messageData = history.messages?.[0];
           }
 
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
           const avatarUrl = userInfo.user?.profile?.image_72;
           const channelName = channelInfo.channel?.name || "unknown-channel";
 
-          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
+          const reactionData = await slack.reactions.get({ channel, timestamp: messageTs });
           let initialUpvotes = 0;
           let initialDownvotes = 0;
 
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
           }
 
           await db.insert(messages).values({
-            messageTs: ts,
+            messageTs: messageTs,
             channelId: channel,
             channelName: channelName,
             userId: messageData.user,
@@ -198,8 +198,8 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // Message exists, but check if it's a thread reply without parent content
-        if (isThreadReply && (!message.parentContent || !message.parentUserName)) {
-          console.log(`Updating existing thread reply ${ts} with missing parent content`);
+        if (isThreadReply && (!message.parentContent || !message.parentUserName || !message.isThreadReply)) {
+          console.log(`Updating existing thread reply ${messageTs} with missing parent content or incorrect thread status`);
           try {
             const threadHistory = await slack.conversations.replies({ 
               channel, 
@@ -224,16 +224,17 @@ export async function POST(req: NextRequest) {
               // Update the message with parent content
               await db.update(messages)
                 .set({
+                  isThreadReply: true,
                   parentContent: parentContent,
                   parentUserName: parentUserName,
                   updatedAt: new Date(),
                 })
-                .where(eq(messages.messageTs, ts));
+                .where(eq(messages.messageTs, messageTs));
                 
-              console.log(`Updated thread reply ${ts} with parent content from ${parentUserName}`);
+              console.log(`Updated thread reply ${messageTs} with parent content from ${parentUserName}`);
             }
           } catch (error) {
-            console.error(`Error updating parent content for thread reply ${ts}:`, error);
+            console.error(`Error updating parent content for thread reply ${messageTs}:`, error);
           }
         }
 
@@ -250,15 +251,15 @@ export async function POST(req: NextRequest) {
             totalReactions: sql`${messages.totalReactions} + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(messages.messageTs, ts))
+          .where(eq(messages.messageTs, messageTs))
           .returning({ totalReactions: messages.totalReactions });
         
         const totalReactions = updated[0]?.totalReactions ?? 0;
 
         if (totalReactions > 0 && totalReactions % 10 === 0) {
-          console.log(`Performing periodic re-sync for message ${ts} at ${totalReactions} reactions.`);
+          console.log(`Performing periodic re-sync for message ${messageTs} at ${totalReactions} reactions.`);
           
-          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
+          const reactionData = await slack.reactions.get({ channel, timestamp: messageTs });
           let authoritativeUpvotes = 0;
           let authoritativeDownvotes = 0;
 
@@ -275,7 +276,7 @@ export async function POST(req: NextRequest) {
               downvotes: authoritativeDownvotes,
               updatedAt: new Date(),
             })
-            .where(eq(messages.messageTs, ts));
+            .where(eq(messages.messageTs, messageTs));
         }
       }
     }
