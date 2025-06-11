@@ -47,7 +47,7 @@ export default function Home() {
           backgroundSize: '24px 24px'
         }}></div>
       </div>
-      
+
       <main className="relative z-10 text-center px-4">
         <div className="flex items-center justify-center text-6xl font-black text-white mb-4" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.4)' }}>
           <motion.div
