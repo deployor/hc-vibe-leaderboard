@@ -11,12 +11,18 @@ interface Message {
   id: number;
   messageTs: string;
   channelId: string;
+  channelName?: string | null;
   userName: string;
   avatarUrl?: string | null;
   content: string;
   upvotes: number;
   downvotes: number;
   createdAt: string;
+  // Thread support fields
+  threadTs?: string | null;
+  isThreadReply?: boolean;
+  parentContent?: string | null;
+  parentUserName?: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -223,29 +229,55 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
             </div>
             <div>
               <p className="font-semibold text-white text-lg">{msg.userName}</p>
-              <div className="relative group">
-                <p className="text-sm text-slate-400 flex items-center gap-1 cursor-help">
-                  <Clock size={12} />
-                  {getRelativeTime(new Date(msg.createdAt))}
-                </p>
-                
-                <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
-                  <div className="text-white font-medium">
-                    {new Date(msg.createdAt).toLocaleString(undefined, {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZoneName: 'short'
-                    })}
+              <div className="flex items-center gap-2">
+                <div className="relative group">
+                  <p className="text-sm text-slate-400 flex items-center gap-1 cursor-help">
+                    <Clock size={12} />
+                    {getRelativeTime(new Date(msg.createdAt))}
+                  </p>
+                  
+                  <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
+                    <div className="text-white font-medium">
+                      {new Date(msg.createdAt).toLocaleString(undefined, {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                      })}
+                    </div>
+                    <div className="absolute top-0 left-4 -translate-y-1/2 w-3 h-3 bg-slate-900/95 border-t border-l border-slate-600/50 rotate-45"></div>
                   </div>
-                  <div className="absolute top-0 left-4 -translate-y-1/2 w-3 h-3 bg-slate-900/95 border-t border-l border-slate-600/50 rotate-45"></div>
                 </div>
+                {msg.channelName && (
+                  <>
+                    <span className="text-slate-600">&middot;</span>
+                    <p className="text-sm text-slate-400">#{msg.channelName}</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
+          
+          {/* Thread context */}
+          {msg.isThreadReply && msg.parentContent && msg.parentUserName && (
+            <div className="mb-4 p-3 bg-slate-700/30 border-l-4 border-blue-500/50 rounded-r-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                <span className="text-xs text-blue-400 font-medium uppercase tracking-wide">
+                  Reply to {msg.parentUserName}
+                </span>
+              </div>
+              <p className="text-slate-400 text-sm italic line-clamp-2">
+                {msg.parentContent.length > 100 
+                  ? `${msg.parentContent.substring(0, 100)}...` 
+                  : msg.parentContent}
+              </p>
+            </div>
+          )}
+          
           <p className="text-slate-300 whitespace-pre-wrap break-words leading-relaxed text-base">
             {msg.content}
           </p>
@@ -255,11 +287,11 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
           href={`https://slack.com/archives/${msg.channelId}/p${msg.messageTs.replace(
             ".",
             ""
-          )}`}
+          )}${msg.isThreadReply && msg.threadTs ? `?thread_ts=${msg.threadTs}` : ""}`}
           target="_blank"
           rel="noopener noreferrer"
           className="self-start text-slate-500 hover:text-blue-400 transition-all duration-200 p-3 rounded-lg hover:bg-blue-500/10 hover:scale-110"
-          title="View on Slack"
+          title={msg.isThreadReply ? "View thread on Slack" : "View on Slack"}
         >
           <ArrowRight size={20} />
         </a>
@@ -308,7 +340,7 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
             Vibe Check brings that beloved tradition to life, turning those ephemeral reactions into a friendly competition. It&apos;s a place to celebrate the most helpful, hilarious, and heartwarming moments from our community.
           </p>
           <p>
-            Keep the vibes going! React to any message in Slack and see it pop up here.
+            Keep the vibes going! React to any message in Slack (including replies in threads) and see it pop up here.
           </p>
         </div>
       </motion.div>

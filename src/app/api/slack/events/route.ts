@@ -77,6 +77,9 @@ export async function POST(req: NextRequest) {
       }
 
       const { channel, ts } = item;
+      // Check if this is a threaded message
+      const threadTs = item.thread_ts;
+      const isThreadReply = threadTs && threadTs !== ts;
 
       const message = await db.query.messages.findFirst({
         where: eq(messages.messageTs, ts),
@@ -97,8 +100,40 @@ export async function POST(req: NextRequest) {
       // If message doesn't exist yet, we need to fetch its author to check opt-out status
       if (!message) {
         try {
-          const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
-          const messageData = history.messages?.[0];
+          let messageData;
+          let parentContent = null;
+          let parentUserName = null;
+
+          if (isThreadReply) {
+            // For threaded messages, we need to fetch from the thread
+            const threadHistory = await slack.conversations.replies({ 
+              channel, 
+              ts: threadTs!,
+              latest: ts,
+              limit: 1,
+              inclusive: true 
+            });
+            messageData = threadHistory.messages?.find(msg => msg.ts === ts);
+            
+            // Also fetch the parent message for context
+            const parentHistory = await slack.conversations.history({ 
+              channel, 
+              latest: threadTs!, 
+              limit: 1, 
+              inclusive: true 
+            });
+            const parentMessage = parentHistory.messages?.[0];
+            if (parentMessage) {
+              parentContent = parentMessage.text || "";
+              const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
+              parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+            }
+          } else {
+            // For regular messages, use conversations.history
+            const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
+            messageData = history.messages?.[0];
+          }
+
           if (!messageData || !messageData.user || !messageData.text) {
             return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
           }
@@ -112,9 +147,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ ok: true });
           }
 
-          const userInfo = await slack.users.info({ user: messageData.user });
+          const [userInfo, channelInfo] = await Promise.all([
+            slack.users.info({ user: messageData.user }),
+            slack.conversations.info({ channel }),
+          ]);
+
           const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
           const avatarUrl = userInfo.user?.profile?.image_72;
+          const channelName = channelInfo.channel?.name || "unknown-channel";
 
           const reactionData = await slack.reactions.get({ channel, timestamp: ts });
           let initialUpvotes = 0;
@@ -130,12 +170,17 @@ export async function POST(req: NextRequest) {
           await db.insert(messages).values({
             messageTs: ts,
             channelId: channel,
+            channelName: channelName,
             userId: messageData.user,
             userName: userName,
             avatarUrl: avatarUrl,
             content: messageData.text,
             upvotes: initialUpvotes,
             downvotes: initialDownvotes,
+            threadTs: threadTs || null,
+            isThreadReply: isThreadReply || false,
+            parentContent: parentContent,
+            parentUserName: parentUserName,
             updatedAt: new Date(),
           });
 
