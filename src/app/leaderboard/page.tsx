@@ -504,10 +504,11 @@ export default function LeaderboardPage() {
     }
   }, []);
 
-  const fetchMessages = useCallback(async (isInitialLoad = false) => {
+  const fetchData = useCallback(async (isInitialLoad = false) => {
     if (isInitialLoad) {
       setLoading(true);
       setMessages([]);
+      setUsers([]);
       setOffset(0);
     } else {
       setLoadingMore(true);
@@ -515,18 +516,26 @@ export default function LeaderboardPage() {
 
     try {
       const currentOffset = isInitialLoad ? 0 : offset;
-      const res = await fetch(`/api/leaderboard?filter=${filter}&sort=${sort}&limit=${PAGE_SIZE}&offset=${currentOffset}`);
+      const endpoint = view === "posts" ? "/api/leaderboard" : "/api/leaderboard/users";
+      const res = await fetch(`${endpoint}?filter=${filter}&sort=${sort}&limit=${PAGE_SIZE}&offset=${currentOffset}`);
       if (res.status === 401) {
         window.location.href = "/";
         return;
       }
       if (!res.ok) {
-        throw new Error("Failed to fetch messages");
+        throw new Error(`Failed to fetch ${view}`);
       }
-      const newMessages: Message[] = await res.json();
       
-      setMessages(prev => isInitialLoad ? newMessages : [...prev, ...newMessages]);
-      setHasMore(newMessages.length === PAGE_SIZE);
+      if (view === "posts") {
+        const newMessages: Message[] = await res.json();
+        setMessages(prev => isInitialLoad ? newMessages : [...prev, ...newMessages]);
+        setHasMore(newMessages.length === PAGE_SIZE);
+      } else {
+        const newUsers: User[] = await res.json();
+        setUsers(prev => isInitialLoad ? newUsers : [...prev, ...newUsers]);
+        setHasMore(newUsers.length === PAGE_SIZE);
+      }
+      
       if (!isInitialLoad) {
         setOffset(currentOffset + PAGE_SIZE);
       } else {
@@ -539,27 +548,36 @@ export default function LeaderboardPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [filter, sort, offset]);
+  }, [filter, sort, offset, view]);
 
-  const refreshMessages = useCallback(async () => {
+  const refreshData = useCallback(async () => {
     try {
-      // Only fetch the number of messages currently visible
-      const currentLimit = messages.length > 0 ? messages.length : PAGE_SIZE;
-      const res = await fetch(`/api/leaderboard?filter=${filter}&sort=${sort}&limit=${currentLimit}&offset=0`);
+      // Only fetch the number of items currently visible
+      const currentLimit = view === "posts" ? 
+        (messages.length > 0 ? messages.length : PAGE_SIZE) : 
+        (users.length > 0 ? users.length : PAGE_SIZE);
+      const endpoint = view === "posts" ? "/api/leaderboard" : "/api/leaderboard/users";
+      const res = await fetch(`${endpoint}?filter=${filter}&sort=${sort}&limit=${currentLimit}&offset=0`);
       if (!res.ok) return;
-      const refreshedMessages: Message[] = await res.json();
-      setMessages(refreshedMessages);
-      // After a refresh, we should check if there are still more pages
-      setHasMore(refreshedMessages.length === currentLimit);
+      
+      if (view === "posts") {
+        const refreshedMessages: Message[] = await res.json();
+        setMessages(refreshedMessages);
+        setHasMore(refreshedMessages.length === currentLimit);
+      } else {
+        const refreshedUsers: User[] = await res.json();
+        setUsers(refreshedUsers);
+        setHasMore(refreshedUsers.length === currentLimit);
+      }
     } catch (error) {
-      console.error("Failed to refresh messages", error);
+      console.error(`Failed to refresh ${view}`, error);
     }
-  }, [filter, sort, messages.length]);
+  }, [filter, sort, messages.length, users.length, view]);
 
   useEffect(() => {
-    fetchMessages(true);
+    fetchData(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, sort]);
+  }, [filter, sort, view]);
   
   // Setup SSE connection
   useEffect(() => {
@@ -569,7 +587,7 @@ export default function LeaderboardPage() {
       const data = JSON.parse(event.data);
       if (data === "refresh") {
         console.log("Received refresh event, updating leaderboard...");
-        refreshMessages();
+        refreshData();
       }
     };
 
@@ -581,7 +599,7 @@ export default function LeaderboardPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshMessages]);
+  }, [refreshData]);
 
 
   return (
@@ -625,6 +643,12 @@ export default function LeaderboardPage() {
           </div>
           
           <div className="space-y-4">
+            {/* View Toggle */}
+            <div className="flex justify-center gap-4 flex-wrap">
+              <ViewButton label="Posts" icon={MessageSquare} view={view} setView={setView} />
+              <ViewButton label="Users" icon={Users} view={view} setView={setView} />
+            </div>
+            
             {/* Sort Controls */}
             <div className="flex justify-center gap-4 flex-wrap">
               <SortButton label="Most Upvotes" icon={ThumbsUp} sort={sort} setSort={setSort} />
@@ -650,31 +674,53 @@ export default function LeaderboardPage() {
           ) : (
             <>
               <AnimatePresence>
-                {messages.length > 0 ? (
-                  <div className="space-y-6">
-                    {messages.map((msg, index) => (
-                      <MessageCard key={msg.id} msg={msg} index={index} />
-                    ))}
-                  </div>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center text-slate-400 py-20"
-                  >
-                    <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <TrendingUp size={32} className="text-white" />
+                {view === "posts" ? (
+                  messages.length > 0 ? (
+                    <div className="space-y-6">
+                      {messages.map((msg, index) => (
+                        <MessageCard key={msg.id} msg={msg} index={index} />
+                      ))}
                     </div>
-                    <p className="text-2xl mb-4 font-semibold">No messages found</p>
-                    <p className="text-lg">Go spread some :upvote: and :downvote: in Slack and come back!</p>
-                  </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center text-slate-400 py-20"
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <MessageSquare size={32} className="text-white" />
+                      </div>
+                      <p className="text-2xl mb-4 font-semibold">No messages found</p>
+                      <p className="text-lg">Go spread some :upvote: and :downvote: in Slack and come back!</p>
+                    </motion.div>
+                  )
+                ) : (
+                  users.length > 0 ? (
+                    <div className="space-y-6">
+                      {users.map((user, index) => (
+                        <UserCard key={user.userId} user={user} index={index} />
+                      ))}
+                    </div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center text-slate-400 py-20"
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Users size={32} className="text-white" />
+                      </div>
+                      <p className="text-2xl mb-4 font-semibold">No users found</p>
+                      <p className="text-lg">Go spread some :upvote: and :downvote: in Slack and come back!</p>
+                    </motion.div>
+                  )
                 )}
               </AnimatePresence>
               
-              {hasMore && messages.length > 0 && (
+              {hasMore && ((view === "posts" && messages.length > 0) || (view === "users" && users.length > 0)) && (
                 <div className="mt-8 text-center">
                   <button
-                    onClick={() => fetchMessages(false)}
+                    onClick={() => fetchData(false)}
                     disabled={loadingMore}
                     className="px-6 py-3 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mx-auto shadow-lg hover:shadow-xl"
                   >
