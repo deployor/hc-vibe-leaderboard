@@ -109,25 +109,19 @@ export async function POST(req: NextRequest) {
             const threadHistory = await slack.conversations.replies({ 
               channel, 
               ts: threadTs!,
-              latest: ts,
-              limit: 1,
               inclusive: true 
             });
             messageData = threadHistory.messages?.find(msg => msg.ts === ts);
             
-            // Also fetch the parent message for context
-            const parentHistory = await slack.conversations.history({ 
-              channel, 
-              latest: threadTs!, 
-              limit: 1, 
-              inclusive: true 
-            });
-            const parentMessage = parentHistory.messages?.[0];
-            if (parentMessage) {
+            // Also fetch the parent message for context (it should be the first message in the thread)
+            const parentMessage = threadHistory.messages?.[0];
+            if (parentMessage && parentMessage.ts === threadTs) {
               parentContent = parentMessage.text || "";
               const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
               parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-            }
+                        }
+            
+            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
           } else {
             // For regular messages, use conversations.history
             const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
