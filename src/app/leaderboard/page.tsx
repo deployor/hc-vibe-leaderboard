@@ -1,0 +1,533 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
+import { LucideIcon } from "lucide-react";
+
+interface Message {
+  id: number;
+  messageTs: string;
+  channelId: string;
+  userName: string;
+  avatarUrl?: string | null;
+  content: string;
+  upvotes: number;
+  downvotes: number;
+  createdAt: string;
+}
+
+const PAGE_SIZE = 20;
+
+function getRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return "just now";
+  }
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 30) {
+    return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) {
+    return `${diffInMonths} month${diffInMonths === 1 ? '' : 's'} ago`;
+  }
+  
+  const diffInYears = Math.floor(diffInMonths / 12);
+  return `${diffInYears} year${diffInYears === 1 ? '' : 's'} ago`;
+}
+
+function LogoutButton() {
+  const router = useRouter();
+  const handleLogout = async () => {
+    const res = await fetch("/api/auth/logout", { method: "POST" });
+    if (res.ok) {
+      router.push("/");
+    } else {
+      // Handle logout error if needed
+      console.error("Logout failed");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleLogout}
+      className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/40 transition-all duration-200 backdrop-blur-sm"
+    >
+      <LogOut className="mr-2 h-4 w-4 inline" /> Logout
+    </button>
+  );
+}
+
+const ControlButton = ({
+  label,
+  icon: Icon,
+  isActive,
+  onClick,
+  activeGradient,
+}: {
+  label: string;
+  icon: LucideIcon;
+  isActive: boolean;
+  onClick: () => void;
+  activeGradient: string;
+}) => {
+  return (
+    <motion.div
+      whileHover={{ scale: 1.05, rotate: -2 }}
+      whileTap={{ scale: 0.95 }}
+      className="relative"
+      style={{ rotate: -1 }}
+    >
+      <button
+        onClick={onClick}
+        className={`relative p-0.5 rounded-lg overflow-hidden transition-all duration-300 ${isActive ? activeGradient : "bg-slate-700"}`}
+      >
+        <div className="relative bg-slate-800/90 hover:bg-slate-800/80 backdrop-blur-sm px-5 py-2.5 rounded-[5px] transition-all duration-300">
+          <span className={`flex items-center justify-center font-semibold transition-colors duration-300 ${isActive ? "text-white" : "text-slate-300"}`}>
+            <Icon size={16} className="mr-2" />
+            {label}
+          </span>
+        </div>
+      </button>
+    </motion.div>
+  );
+};
+
+const FilterButton = ({
+  label,
+  icon: Icon,
+  filter,
+  setFilter,
+}: {
+  label: string;
+  icon: LucideIcon;
+  filter: string;
+  setFilter: (filter: string) => void;
+}) => {
+  const filterKey = label.toLowerCase().replace(" ", "");
+  const isActive = filter === filterKey;
+  
+  return (
+    <ControlButton
+      label={label}
+      icon={Icon}
+      isActive={isActive}
+      onClick={() => setFilter(filterKey)}
+      activeGradient="bg-gradient-to-r from-blue-500 to-purple-500"
+    />
+  );
+};
+
+const SortButton = ({
+  label,
+  icon: Icon,
+  sort,
+  setSort,
+}: {
+  label: string;
+  icon: LucideIcon;
+  sort: string;
+  setSort: (sort: string) => void;
+}) => {
+  const sortKey = label.toLowerCase().replace("most ", "");
+  const isActive = sort === sortKey;
+  
+  return (
+    <ControlButton
+      label={label}
+      icon={Icon}
+      isActive={isActive}
+      onClick={() => setSort(sortKey)}
+      activeGradient="bg-gradient-to-r from-emerald-500 to-blue-500"
+    />
+  );
+};
+
+const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
+  const score = msg.upvotes - msg.downvotes;
+  const scoreColor =
+    score > 0 ? "text-emerald-400" : score < 0 ? "text-red-400" : "text-slate-400";
+
+  return (
+    <motion.div
+      layout
+      layoutId={`message-${msg.id}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ 
+        layout: { duration: 0.5, ease: "easeInOut" },
+        opacity: { duration: 0.3 },
+        y: { duration: 0.3, delay: index * 0.02 }
+      }}
+      className="relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 hover:border-slate-600/50 rounded-xl p-6 shadow-xl backdrop-blur-sm transition-all duration-200 hover:shadow-2xl hover:scale-[1.02]"
+    >
+      <div className="flex gap-5">
+        <div className="flex flex-col items-center w-20 flex-shrink-0">
+          <div className={`font-bold text-xl ${scoreColor} text-center group relative`}>
+            <div className={`p-2 rounded-lg transition-all duration-200 ${
+              score > 0 ? "bg-emerald-500/10" : score < 0 ? "bg-red-500/10" : "bg-slate-500/10"
+            }`}>
+              <ArrowBigUp size={24} className={score > 0 ? "text-emerald-400" : "text-slate-600"} />
+              <div className="text-3xl font-black py-1">{score}</div>
+              <ArrowBigDown size={24} className={score < 0 ? "text-red-400" : "text-slate-600"} />
+            </div>
+            
+            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-emerald-400 font-medium">Upvotes:</span>
+                <span className="text-white font-bold text-lg">{msg.upvotes}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-red-400 font-medium">Downvotes:</span>
+                <span className="text-white font-bold text-lg">{msg.downvotes}</span>
+              </div>
+              <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-4 bg-slate-900/95 border-b border-l border-slate-600/50 rotate-45"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-grow">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative">
+              {msg.avatarUrl ? (
+                <Image
+                  src={msg.avatarUrl}
+                  alt={msg.userName}
+                  width={48}
+                  height={48}
+                  className="rounded-full ring-2 ring-slate-600/50"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  {msg.userName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-semibold text-white text-lg">{msg.userName}</p>
+              <div className="relative group">
+                <p className="text-sm text-slate-400 flex items-center gap-1 cursor-help">
+                  <Clock size={12} />
+                  {getRelativeTime(new Date(msg.createdAt))}
+                </p>
+                
+                <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
+                  <div className="text-white font-medium">
+                    {new Date(msg.createdAt).toLocaleString(undefined, {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZoneName: 'short'
+                    })}
+                  </div>
+                  <div className="absolute top-0 left-4 -translate-y-1/2 w-3 h-3 bg-slate-900/95 border-t border-l border-slate-600/50 rotate-45"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p className="text-slate-300 whitespace-pre-wrap break-words leading-relaxed text-base">
+            {msg.content}
+          </p>
+        </div>
+        
+        <a
+          href={`https://slack.com/archives/${msg.channelId}/p${msg.messageTs.replace(
+            ".",
+            ""
+          )}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="self-start text-slate-500 hover:text-blue-400 transition-all duration-200 p-3 rounded-lg hover:bg-blue-500/10 hover:scale-110"
+          title="View on Slack"
+        >
+          <ArrowRight size={20} />
+        </a>
+      </div>
+    </motion.div>
+  );
+};
+
+const InfoModal = ({ onClose }: { onClose: () => void }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -30, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-8 max-w-2xl w-full relative shadow-2xl text-white"
+        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
+          <X size={24} />
+        </button>
+        <div className="flex items-center gap-4 mb-6">
+          <div className="bg-blue-500/10 p-3 rounded-full border border-blue-500/20">
+            <Info size={28} className="text-blue-400" />
+          </div>
+          <h2 className="text-3xl font-bold">What is Vibe Check?</h2>
+        </div>
+        <div className="space-y-4 text-slate-300 leading-relaxed">
+          <p>
+            For years, the <a href="https://hackclub.com/slack" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium">Hack Club Slack</a> has had a fun, unofficial tradition: reacting to messages with <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded-md text-sm">:upvote:</span> and <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded-md text-sm">:downvote:</span> to show how you feel.
+          </p>
+          <p>
+            It was a simple way to give feedback, share appreciation, or just have fun. But the votes were scattered, their stories lost in the endless scroll.
+          </p>
+          <p className="font-medium text-white">
+            This leaderboard changes that.
+          </p>
+          <p>
+            Vibe Check brings that beloved tradition to life, turning those ephemeral reactions into a friendly competition. It&apos;s a place to celebrate the most helpful, hilarious, and heartwarming moments from our community.
+          </p>
+          <p>
+            Keep the vibes going! React to any message in Slack and see it pop up here.
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+export default function LeaderboardPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [filter, setFilter] = useState("day");
+  const [sort, setSort] = useState("upvotes");
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [isInfoModalOpen, setInfoModalOpen] = useState(false);
+
+  // Show modal on first visit
+  useEffect(() => {
+    const hasVisited = localStorage.getItem("hasVisitedVibeCheck");
+    if (!hasVisited) {
+      setInfoModalOpen(true);
+      localStorage.setItem("hasVisitedVibeCheck", "true");
+    }
+  }, []);
+
+  const fetchMessages = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad) {
+      setLoading(true);
+      setMessages([]);
+      setOffset(0);
+    } else {
+      setLoadingMore(true);
+    }
+
+    try {
+      const currentOffset = isInitialLoad ? 0 : offset;
+      const res = await fetch(`/api/leaderboard?filter=${filter}&sort=${sort}&limit=${PAGE_SIZE}&offset=${currentOffset}`);
+      if (res.status === 401) {
+        window.location.href = "/";
+        return;
+      }
+      if (!res.ok) {
+        throw new Error("Failed to fetch messages");
+      }
+      const newMessages: Message[] = await res.json();
+      
+      setMessages(prev => isInitialLoad ? newMessages : [...prev, ...newMessages]);
+      setHasMore(newMessages.length === PAGE_SIZE);
+      if (!isInitialLoad) {
+        setOffset(currentOffset + PAGE_SIZE);
+      } else {
+        setOffset(PAGE_SIZE);
+      }
+      
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [filter, sort, offset]);
+
+  const refreshMessages = useCallback(async () => {
+    try {
+      // Only fetch the number of messages currently visible
+      const currentLimit = messages.length > 0 ? messages.length : PAGE_SIZE;
+      const res = await fetch(`/api/leaderboard?filter=${filter}&sort=${sort}&limit=${currentLimit}&offset=0`);
+      if (!res.ok) return;
+      const refreshedMessages: Message[] = await res.json();
+      setMessages(refreshedMessages);
+      // After a refresh, we should check if there are still more pages
+      setHasMore(refreshedMessages.length === currentLimit);
+    } catch (error) {
+      console.error("Failed to refresh messages", error);
+    }
+  }, [filter, sort, messages.length]);
+
+  useEffect(() => {
+    fetchMessages(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, sort]);
+  
+  // Setup SSE connection
+  useEffect(() => {
+    const eventSource = new EventSource("/api/leaderboard/events");
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data === "refresh") {
+        console.log("Received refresh event, updating leaderboard...");
+        refreshMessages();
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("EventSource failed:", err);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [refreshMessages]);
+
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white relative overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+          backgroundSize: '24px 24px'
+        }}></div>
+      </div>
+      
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-5xl">
+        <header className="mb-12 relative">
+          <div className="absolute top-0 right-0 z-20">
+            <LogoutButton />
+          </div>
+          
+          <div className="text-center pt-4 mb-8">
+            <div className="flex items-center justify-center text-5xl font-black text-white mb-2" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+              <motion.div
+                animate={{ y: [-2, 2, -2] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ArrowBigUp className="text-emerald-500" size={48} strokeWidth={2.5} />
+              </motion.div>
+              <span className="mx-4 tracking-tight">Vibe Check</span>
+              <motion.div
+                animate={{ y: [2, -2, 2] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <ArrowBigDown className="text-red-500" size={48} strokeWidth={2.5} />
+              </motion.div>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-slate-400 text-lg">The Reddit of Hack Club.</p>
+              <button onClick={() => setInfoModalOpen(true)} className="text-slate-500 hover:text-white transition-colors" title="What is this?">
+                <Info size={18} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Sort Controls */}
+            <div className="flex justify-center gap-4 flex-wrap">
+              <SortButton label="Most Upvotes" icon={ThumbsUp} sort={sort} setSort={setSort} />
+              <SortButton label="Most Downvotes" icon={ThumbsDown} sort={sort} setSort={setSort} />
+            </div>
+            
+            {/* Time Filters */}
+            <div className="flex justify-center gap-4 flex-wrap">
+              <FilterButton label="Day" icon={Calendar} filter={filter} setFilter={setFilter} />
+              <FilterButton label="Month" icon={Calendar} filter={filter} setFilter={setFilter} />
+              <FilterButton label="Year" icon={TrendingUp} filter={filter} setFilter={setFilter} />
+              <FilterButton label="All Time" icon={Globe} filter={filter} setFilter={setFilter} />
+            </div>
+          </div>
+        </header>
+
+        <main>
+          {loading ? (
+            <div className="text-center text-slate-400 py-20">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-xl">Loading the best vibes...</p>
+            </div>
+          ) : (
+            <>
+              <AnimatePresence>
+                {messages.length > 0 ? (
+                  <div className="space-y-6">
+                    {messages.map((msg, index) => (
+                      <MessageCard key={msg.id} msg={msg} index={index} />
+                    ))}
+                  </div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center text-slate-400 py-20"
+                  >
+                    <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <TrendingUp size={32} className="text-white" />
+                    </div>
+                    <p className="text-2xl mb-4 font-semibold">No messages found</p>
+                    <p className="text-lg">Go spread some :upvote: and :downvote: in Slack and come back!</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              {hasMore && messages.length > 0 && (
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={() => fetchMessages(false)}
+                    disabled={loadingMore}
+                    className="px-6 py-3 rounded-lg text-white font-semibold bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mx-auto shadow-lg hover:shadow-xl"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader className="animate-spin mr-2" size={20} />
+                        Loading...
+                      </>
+                    ) : (
+                      "Load More"
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      <AnimatePresence>
+        {isInfoModalOpen && <InfoModal onClose={() => setInfoModalOpen(false)} />}
+      </AnimatePresence>
+    </div>
+  );
+} 
