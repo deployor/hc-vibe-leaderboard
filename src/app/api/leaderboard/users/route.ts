@@ -18,9 +18,11 @@ export async function GET(req: NextRequest) {
 
   // Require at least some engagement - either upvotes > 0 OR downvotes > 0
   // Also explicitly exclude messages where both are 0
+  // Exclude polling channel C0710J7F4U9
   const hasEngagement = and(
     or(gt(messages.upvotes, 0), gt(messages.downvotes, 0)),
-    ne(sql`upvotes + downvotes`, 0)
+    ne(sql`upvotes + downvotes`, 0),
+    ne(messages.channelId, "C0710J7F4U9")
   );
 
   let where;

