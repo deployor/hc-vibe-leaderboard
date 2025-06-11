@@ -117,11 +117,22 @@ export async function POST(req: NextRequest) {
             const parentMessage = threadHistory.messages?.[0];
             if (parentMessage && parentMessage.ts === threadTs) {
               parentContent = parentMessage.text || "";
-              const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
-              parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-                        }
+              if (parentMessage.user) {
+                try {
+                  const parentUserInfo = await slack.users.info({ user: parentMessage.user });
+                  parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+                } catch (error) {
+                  console.error(`Error fetching parent user info for ${parentMessage.user}:`, error);
+                  parentUserName = "Unknown";
+                }
+              }
+            }
             
-            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
+            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}`);
+            console.log(`  - Reply content: "${messageData?.text?.substring(0, 50)}..."`);
+            console.log(`  - Parent content: "${parentContent?.substring(0, 50)}..."`);
+            console.log(`  - Parent user: ${parentUserName}`);
+            console.log(`  - Thread messages found: ${threadHistory.messages?.length || 0}`);
           } else {
             // For regular messages, use conversations.history
             const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
@@ -186,6 +197,46 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
+        // Message exists, but check if it's a thread reply without parent content
+        if (isThreadReply && (!message.parentContent || !message.parentUserName)) {
+          console.log(`Updating existing thread reply ${ts} with missing parent content`);
+          try {
+            const threadHistory = await slack.conversations.replies({ 
+              channel, 
+              ts: threadTs!,
+              inclusive: true 
+            });
+            
+            const parentMessage = threadHistory.messages?.[0];
+            if (parentMessage && parentMessage.ts === threadTs) {
+              const parentContent = parentMessage.text || "";
+              let parentUserName = "Unknown";
+              
+              if (parentMessage.user) {
+                try {
+                  const parentUserInfo = await slack.users.info({ user: parentMessage.user });
+                  parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+                } catch (error) {
+                  console.error(`Error fetching parent user info for ${parentMessage.user}:`, error);
+                }
+              }
+              
+              // Update the message with parent content
+              await db.update(messages)
+                .set({
+                  parentContent: parentContent,
+                  parentUserName: parentUserName,
+                  updatedAt: new Date(),
+                })
+                .where(eq(messages.messageTs, ts));
+                
+              console.log(`Updated thread reply ${ts} with parent content from ${parentUserName}`);
+            }
+          } catch (error) {
+            console.error(`Error updating parent content for thread reply ${ts}:`, error);
+          }
+        }
+
         const isUpvote = upvoteReactions.includes(reaction);
         const isAdd = event.type === "reaction_added";
         
