@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
           await slack.conversations.join({ channel: channel.id });
           console.log(`Successfully joined channel ${channel.id}`);
 
-          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of vibes! Hack Club community has a fun tradition of using :upvote: and :downvote: on messages. I'll be tallying them up on the leaderboard. You can check it out and find more info at https://vibe.deployor.dev.`;
+          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of upvote using :upvote: and :downvote: on messages. I'll be tallying them up on the leaderboard. You can check it out at https://vibe.deployor.dev.`;
 
           await slack.chat.postEphemeral({
             channel: channel.id,
