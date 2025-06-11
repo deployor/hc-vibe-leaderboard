@@ -28,4 +28,8 @@ export const messages = pgTable(
       messageTsIndex: uniqueIndex("message_ts_idx").on(messages.messageTs),
     };
   }
-); 
+);
+
+export const optedOutUsers = pgTable("opted_out_users", {
+  slackUserId: text("slack_user_id").primaryKey(),
+}); 

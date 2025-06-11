@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
-import { messages } from "@/db/schema";
+import { messages, optedOutUsers } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 
@@ -82,12 +82,34 @@ export async function POST(req: NextRequest) {
         where: eq(messages.messageTs, ts),
       });
 
+      // --- Check if the message author has opted out ---
+      const messageAuthorId = message?.userId;
+      if (messageAuthorId) {
+        const isOptedOut = await db.query.optedOutUsers.findFirst({
+          where: eq(optedOutUsers.slackUserId, messageAuthorId),
+        });
+        if (isOptedOut) {
+          console.log(`Ignoring reaction for message by opted-out user ${messageAuthorId}`);
+          return NextResponse.json({ ok: true });
+        }
+      }
+      
+      // If message doesn't exist yet, we need to fetch its author to check opt-out status
       if (!message) {
         try {
           const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
           const messageData = history.messages?.[0];
           if (!messageData || !messageData.user || !messageData.text) {
             return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
+          }
+
+          // --- Check opt-out status BEFORE creating the record ---
+          const isOptedOut = await db.query.optedOutUsers.findFirst({
+            where: eq(optedOutUsers.slackUserId, messageData.user),
+          });
+          if (isOptedOut) {
+            console.log(`Ignoring new message from opted-out user ${messageData.user}`);
+            return NextResponse.json({ ok: true });
           }
 
           const userInfo = await slack.users.info({ user: messageData.user });
