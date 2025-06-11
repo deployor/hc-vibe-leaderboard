@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X } from "lucide-react";
+import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X, MessageSquare, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -23,6 +23,17 @@ interface Message {
   isThreadReply?: boolean;
   parentContent?: string | null;
   parentUserName?: string | null;
+}
+
+interface User {
+  userId: string;
+  userName: string;
+  avatarUrl?: string | null;
+  totalUpvotes: number;
+  totalDownvotes: number;
+  netScore: number;
+  messageCount: number;
+  lastMessageAt: string;
 }
 
 const PAGE_SIZE = 20;
@@ -163,6 +174,130 @@ const SortButton = ({
       onClick={() => setSort(sortKey)}
       activeGradient="bg-gradient-to-r from-emerald-500 to-blue-500"
     />
+  );
+};
+
+const ViewButton = ({
+  label,
+  icon: Icon,
+  view,
+  setView,
+}: {
+  label: string;
+  icon: LucideIcon;
+  view: string;
+  setView: (view: string) => void;
+}) => {
+  const viewKey = label.toLowerCase();
+  const isActive = view === viewKey;
+  
+  return (
+    <ControlButton
+      label={label}
+      icon={Icon}
+      isActive={isActive}
+      onClick={() => setView(viewKey)}
+      activeGradient="bg-gradient-to-r from-purple-500 to-pink-500"
+    />
+  );
+};
+
+const UserCard = ({ user, index }: { user: User; index: number }) => {
+  const scoreColor =
+    user.netScore > 0 ? "text-emerald-400" : user.netScore < 0 ? "text-red-400" : "text-slate-400";
+
+  return (
+    <motion.div
+      layout
+      layoutId={`user-${user.userId}`}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ 
+        layout: { duration: 0.5, ease: "easeInOut" },
+        opacity: { duration: 0.3 },
+        y: { duration: 0.3, delay: index * 0.02 }
+      }}
+      className="relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 hover:border-slate-600/50 rounded-xl p-6 shadow-xl backdrop-blur-sm transition-all duration-200 hover:shadow-2xl hover:scale-[1.02]"
+    >
+      <div className="flex gap-5">
+        <div className="flex flex-col items-center w-20 flex-shrink-0">
+          <div className={`font-bold text-xl ${scoreColor} text-center group relative`}>
+            <div className={`p-2 rounded-lg transition-all duration-200 ${
+              user.netScore > 0 ? "bg-emerald-500/10" : user.netScore < 0 ? "bg-red-500/10" : "bg-slate-500/10"
+            }`}>
+              <ArrowBigUp size={24} className={user.netScore > 0 ? "text-emerald-400" : "text-slate-600"} />
+              <div className="text-3xl font-black py-1">{user.netScore}</div>
+              <ArrowBigDown size={24} className={user.netScore < 0 ? "text-red-400" : "text-slate-600"} />
+            </div>
+            
+            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-emerald-400 font-medium">Total Upvotes:</span>
+                <span className="text-white font-bold text-lg">{user.totalUpvotes}</span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-red-400 font-medium">Total Downvotes:</span>
+                <span className="text-white font-bold text-lg">{user.totalDownvotes}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-blue-400 font-medium">Messages:</span>
+                <span className="text-white font-bold text-lg">{user.messageCount}</span>
+              </div>
+              <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-4 bg-slate-900/95 border-b border-l border-slate-600/50 rotate-45"></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-grow">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative">
+              {user.avatarUrl ? (
+                <Image
+                  src={user.avatarUrl}
+                  alt={user.userName}
+                  width={48}
+                  height={48}
+                  className="rounded-full ring-2 ring-slate-600/50"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  {user.userName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-semibold text-white text-lg">{user.userName}</p>
+              <div className="flex items-center gap-2">
+                <div className="relative group">
+                  <p className="text-sm text-slate-400 flex items-center gap-1 cursor-help">
+                    <Clock size={12} />
+                    Last message {getRelativeTime(new Date(user.lastMessageAt))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-emerald-400">{user.totalUpvotes}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Total Upvotes</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-400">{user.totalDownvotes}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Total Downvotes</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-400">{user.messageCount}</div>
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Messages</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 
@@ -350,6 +485,8 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
 
 export default function LeaderboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [view, setView] = useState("posts");
   const [filter, setFilter] = useState("day");
   const [sort, setSort] = useState("upvotes");
   const [loading, setLoading] = useState(true);
