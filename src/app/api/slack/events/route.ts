@@ -68,27 +68,56 @@ export async function POST(req: NextRequest) {
 
       const upvoteReactions = ["upvote", "this"];
       const downvoteReactions = ["downvote"];
+      const yayReactions = ["yay"];
+      const sobReactions = ["sob", "heavysob"];
+      const heartReactions = ["sparkling_heart"];
+      const starReactions = ["star"];
+      const fireReactions = ["fire"];
 
-      if (
-        !upvoteReactions.includes(reaction) &&
-        !downvoteReactions.includes(reaction)
-      ) {
+      const allTrackedReactions = [
+        ...upvoteReactions,
+        ...downvoteReactions,
+        ...yayReactions,
+        ...sobReactions,
+        ...heartReactions,
+        ...starReactions,
+        ...fireReactions,
+      ];
+
+      if (!allTrackedReactions.includes(reaction)) {
         return NextResponse.json({ ok: true });
       }
 
       // --- Update stats for the user who GAVE the reaction ---
       if (reactingUserId) {
         const isAdd = event.type === "reaction_added";
+        const change = isAdd ? 1 : -1;
+        
         let givenUpvoteChange = 0;
         let givenDownvoteChange = 0;
+        let givenYayChange = 0;
+        let givenSobChange = 0;
+        let givenHeartChange = 0;
+        let givenStarChange = 0;
+        let givenFireChange = 0;
 
-        if (upvoteReactions.includes(reaction)) {
-            givenUpvoteChange = isAdd ? 1 : -1;
-        } else if (downvoteReactions.includes(reaction)) {
-            givenDownvoteChange = isAdd ? 1 : -1;
-        }
+        if (upvoteReactions.includes(reaction)) givenUpvoteChange = change;
+        else if (downvoteReactions.includes(reaction)) givenDownvoteChange = change;
+        else if (yayReactions.includes(reaction)) givenYayChange = change;
+        else if (sobReactions.includes(reaction)) givenSobChange = change;
+        else if (heartReactions.includes(reaction)) givenHeartChange = change;
+        else if (starReactions.includes(reaction)) givenStarChange = change;
+        else if (fireReactions.includes(reaction)) givenFireChange = change;
 
-        if (givenUpvoteChange !== 0 || givenDownvoteChange !== 0) {
+        if (
+          givenUpvoteChange ||
+          givenDownvoteChange ||
+          givenYayChange ||
+          givenSobChange ||
+          givenHeartChange ||
+          givenStarChange ||
+          givenFireChange
+        ) {
             const reactingUserStats = await db.query.userStats.findFirst({
                 where: eq(userStats.userId, reactingUserId),
             });
@@ -98,6 +127,11 @@ export async function POST(req: NextRequest) {
                     .set({
                         givenUpvotes: sql`${userStats.givenUpvotes} + ${givenUpvoteChange}`,
                         givenDownvotes: sql`${userStats.givenDownvotes} + ${givenDownvoteChange}`,
+                        givenYay: sql`${userStats.givenYay} + ${givenYayChange}`,
+                        givenSob: sql`${userStats.givenSob} + ${givenSobChange}`,
+                        givenHeart: sql`${userStats.givenHeart} + ${givenHeartChange}`,
+                        givenStar: sql`${userStats.givenStar} + ${givenStarChange}`,
+                        givenFire: sql`${userStats.givenFire} + ${givenFireChange}`,
                         updatedAt: new Date(),
                     })
                     .where(eq(userStats.userId, reactingUserId));
@@ -110,6 +144,11 @@ export async function POST(req: NextRequest) {
                         avatarUrl: userInfo.user.profile?.image_72,
                         givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
                         givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
+                        givenYay: givenYayChange > 0 ? 1 : 0,
+                        givenSob: givenSobChange > 0 ? 1 : 0,
+                        givenHeart: givenHeartChange > 0 ? 1 : 0,
+                        givenStar: givenStarChange > 0 ? 1 : 0,
+                        givenFire: givenFireChange > 0 ? 1 : 0,
                         updatedAt: new Date(),
                     });
                 }

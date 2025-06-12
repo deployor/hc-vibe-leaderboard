@@ -47,6 +47,11 @@ export const userStats = pgTable("user_stats", {
   avatarUrl: text("avatar_url"),
   givenUpvotes: integer("given_upvotes").default(0).notNull(),
   givenDownvotes: integer("given_downvotes").default(0).notNull(),
+  givenYay: integer("given_yay").default(0).notNull(),
+  givenSob: integer("given_sob").default(0).notNull(),
+  givenHeart: integer("given_heart").default(0).notNull(),
+  givenStar: integer("given_star").default(0).notNull(),
+  givenFire: integer("given_fire").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
