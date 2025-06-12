@@ -85,7 +85,9 @@ export async function POST(req: NextRequest) {
           });
 
           // Create update object based on category
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const updateData: any = { updatedAt: new Date() };
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const insertData: any = {
             userId: reactingUserId,
             userName: "Unknown",
@@ -227,6 +229,7 @@ export async function POST(req: NextRequest) {
           }
 
           // Build update object
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const updateData: any = {
             upvotes: upvoterIds.size,
             downvotes: categoryCounts.downvotes || 0,
