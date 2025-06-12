@@ -7,6 +7,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { LucideIcon } from "lucide-react";
 
+declare global {
+  interface Window {
+    umami?: {
+      track: (event: string | Record<string, unknown>, data?: Record<string, unknown>) => void;
+      identify: (id: string, data?: Record<string, unknown>) => void;
+    };
+  }
+}
+
 interface Message {
   id: number;
   messageTs: string;
@@ -533,6 +542,25 @@ export default function LeaderboardPage() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [isInfoModalOpen, setInfoModalOpen] = useState(false);
+
+  // Identify user for analytics
+  useEffect(() => {
+    const identifyUser = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.isLoggedIn && data.user?.id && window.umami) {
+          window.umami.identify(data.user.id, {
+            name: data.user.name,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to identify user for analytics:", error);
+      }
+    };
+    identifyUser();
+  }, []);
 
   // Show modal on first visit
   useEffect(() => {
