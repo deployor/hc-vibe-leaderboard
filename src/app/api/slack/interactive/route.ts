@@ -14,34 +14,48 @@ export async function POST(req: NextRequest) {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  const payload = new URLSearchParams(body).get("payload");
-  if (!payload) {
-    return new Response("Invalid payload", { status: 400 });
+  const data = new URLSearchParams(body);
+  const payloadStr = data.get("payload");
+
+  if (!payloadStr) {
+    return new Response("Missing payload", { status: 400 });
   }
 
-  const data = JSON.parse(payload);
+  const payload = JSON.parse(payloadStr);
 
-  // Handle block actions (e.g., button clicks)
-  if (data.type === "block_actions") {
-    // We don't want to block the main thread.
+  // Acknowledge the interaction immediately.
+  // Slack requires a response within 3 seconds.
+  if (payload.type === "block_actions") {
+    // We don't want to block the response to slack, so we do the work async
     (async () => {
-      for (const action of data.actions) {
-        const userId = data.user.id;
+      const action = payload.actions[0];
+      const userId = payload.user.id;
 
-        if (action.action_id === "opt_out") {
-          console.log(`User ${userId} is opting out.`);
-          await db.insert(optedOutUsers).values({ slackUserId: userId }).onConflictDoNothing();
-        } else if (action.action_id === "opt_in") {
-          console.log(`User ${userId} is opting in.`);
-          await db.delete(optedOutUsers).where(eq(optedOutUsers.slackUserId, userId));
+      if (action.action_id === "toggle_opt_out") {
+        try {
+          const existingUser = await db.query.optedOutUsers.findFirst({
+            where: eq(optedOutUsers.slackUserId, userId),
+          });
+
+          if (existingUser) {
+            // User is opted out, so opt them back in.
+            await db.delete(optedOutUsers).where(eq(optedOutUsers.slackUserId, userId));
+            console.log(`User ${userId} opted back in.`);
+          } else {
+            // User is not opted out, so opt them out.
+            await db.insert(optedOutUsers).values({ slackUserId: userId });
+            console.log(`User ${userId} opted out.`);
+          }
+
+          // After changing their status, update their App Home view
+          await publishHomeView(userId);
+
+        } catch (error) {
+          console.error(`Error handling user opt-out toggle for ${userId}:`, error);
         }
-        
-        // After an action, always update the home view to reflect the new state
-        await publishHomeView(userId);
       }
     })();
   }
 
-  // Acknowledge the interaction immediately
-  return new NextResponse(null, { status: 200 });
+  return NextResponse.json({ ok: true });
 } 

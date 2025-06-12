@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
   if (data.type === "event_callback") {
     const event = data.event;
 
-    // --- Handle app home opened ---
     if (event.type === "app_home_opened") {
       // We don't want to block the main thread.
+      // We'll process this in the background.
       (async () => {
         await publishHomeView(event.user);
       })();

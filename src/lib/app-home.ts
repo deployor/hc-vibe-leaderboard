@@ -5,33 +5,32 @@ import { eq } from "drizzle-orm";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
-async function buildHomeView(userId: string) {
+async function buildHomeView(userId: string): Promise<View> {
   const isOptedOut = await db.query.optedOutUsers.findFirst({
     where: eq(optedOutUsers.slackUserId, userId),
   });
 
-  const statusText = isOptedOut
-    ? ":red_circle: *You are currently opted-out.* Your messages will not appear on the Vibe Check leaderboard."
-    : ":large_green_circle: *You are currently opted-in.* Your messages are eligible to appear on the Vibe Check leaderboard.";
-  
-  const buttonText = isOptedOut ? "Opt-In" : "Opt-Out";
-  const actionId = isOptedOut ? "opt_in" : "opt_out";
-  const style = isOptedOut ? "primary" : "danger";
+  const optOutStatusText = isOptedOut
+    ? "🔴 You are currently *opted out* of Vibe Check. Your messages will not appear on the leaderboard."
+    : "✅ You are currently *opted in* to Vibe Check. Your messages can appear on the leaderboard.";
 
+  const optOutButtonText = isOptedOut ? "Opt Back In" : "Opt Out";
+  const optOutButtonStyle = isOptedOut ? "primary" : "danger";
 
   const blocks = [
     {
-      type: "section",
+      type: "header",
       text: {
-        type: "mrkdwn",
-        text: "*Welcome to Vibe Check!* :wave:",
+        type: "plain_text",
+        text: "Vibe Check HQ",
+        emoji: true,
       },
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "This is your central hub for managing your Vibe Check settings and accessing the leaderboard.",
+        text: "Welcome to your personal Vibe Check dashboard! Here you can manage your participation.",
       },
     },
     {
@@ -41,15 +40,32 @@ async function buildHomeView(userId: string) {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "*Leaderboard Participation*",
+        text: `*Your Status:*\n${optOutStatusText}`,
       },
+      accessory: {
+        type: "button",
+        text: {
+          type: "plain_text",
+          text: optOutButtonText,
+          emoji: true,
+        },
+        style: optOutButtonStyle,
+        action_id: "toggle_opt_out",
+        value: userId, // Pass user ID in value
+      },
+    },
+    {
+      type: "divider",
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: statusText,
+        text: "*Manage Channel Participation*\nWant Vibe Check to leave or rejoin a specific channel? If you're the channel creator or a workspace admin, you can use the `/opt-vibecheck-channel` command within that channel.",
       },
+    },
+    {
+      type: "divider",
     },
     {
       type: "actions",
@@ -58,58 +74,20 @@ async function buildHomeView(userId: string) {
           type: "button",
           text: {
             type: "plain_text",
-            text: buttonText,
+            text: "🚀 View Leaderboard",
             emoji: true,
           },
-          style: style,
-          value: userId,
-          action_id: actionId,
+          url: "https://vibe.hackclub.com/leaderboard",
+          action_id: "link_to_leaderboard",
         },
       ],
-    },
-    {
-      type: "divider",
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "*Channel Management*",
-      },
-    },
-     {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "As a channel creator or workspace admin, you can ask me to leave or rejoin a specific public channel using the `/opt-vibecheck-channel` command from within that channel.",
-      },
-    },
-    {
-      type: "divider",
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "Ready to see the vibes? :zap:",
-      },
-      accessory: {
-        type: "button",
-        text: {
-          type: "plain_text",
-          text: "Go to Leaderboard",
-          emoji: true,
-        },
-        url: "https://vibe.hackclub.com",
-        action_id: "link_to_leaderboard",
-      },
     },
   ];
 
   return {
     type: "home",
     blocks: blocks,
-  };
+  } as View;
 }
 
 export async function publishHomeView(userId: string) {
@@ -117,9 +95,10 @@ export async function publishHomeView(userId: string) {
     const view = await buildHomeView(userId);
     await slack.views.publish({
       user_id: userId,
-      view: view as View,
+      view: view,
     });
+    console.log(`Published App Home for user ${userId}`);
   } catch (error) {
-    console.error(`Failed to publish home view for user ${userId}:`, error);
+    console.error(`Error publishing App Home for user ${userId}:`, error);
   }
 } 
