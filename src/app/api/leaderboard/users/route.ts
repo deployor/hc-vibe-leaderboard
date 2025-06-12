@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   const hasEngagement = and(
     or(gt(messages.upvotes, 0), gt(messages.downvotes, 0)),
     ne(sql`upvotes + downvotes`, 0),
-    ne(messages.channelId, "C0710J7F4U9")
+    ne(messages.channelId, "C0710J7F4U9"),
+    ne(messages.userId, "U023L3A4UKX")
   );
 
   let where;
