@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { messages } from "@/db/schema";
-import { desc, gt, and, sql, or, ne, asc } from "drizzle-orm";
+import { messages, userStats } from "@/db/schema";
+import { desc, gt, and, sql, or, ne, asc, eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
@@ -40,33 +40,44 @@ export async function GET(req: NextRequest) {
     where = hasEngagement;
   }
 
+  const aggregatedMessages = db.select({
+      userId: messages.userId,
+      userName: messages.userName,
+      avatarUrl: messages.avatarUrl,
+      totalUpvotes: sql<number>`SUM(${messages.upvotes})`.as("totalUpvotes"),
+      totalDownvotes: sql<number>`SUM(${messages.downvotes})`.as("totalDownvotes"),
+      netScore: sql<number>`SUM(${messages.upvotes}) - SUM(${messages.downvotes})`.as("netScore"),
+      messageCount: sql<number>`COUNT(*)`.as("messageCount"),
+      lastMessageAt: sql<string>`MAX(${messages.createdAt})`.as("lastMessageAt"),
+  }).from(messages).where(where).groupBy(messages.userId, messages.userName, messages.avatarUrl).as("agg");
+
   // Determine sort order for user aggregation
   let orderBy;
   if (sort === "downvotes") {
     // For downvotes, sort by total downvotes descending, then by net score ascending (more negative = more hated)
-    orderBy = [desc(sql`SUM(downvotes)`), asc(sql`SUM(upvotes) - SUM(downvotes)`)];
+    orderBy = [desc(aggregatedMessages.totalDownvotes), asc(aggregatedMessages.netScore)];
   } else {
     // Default to sorting by net score (total upvotes - total downvotes), then by total upvotes
-    orderBy = [desc(sql`SUM(upvotes) - SUM(downvotes)`), desc(sql`SUM(upvotes)`)];
+    orderBy = [desc(aggregatedMessages.netScore), desc(aggregatedMessages.totalUpvotes)];
   }
 
-  const userLeaderboard = await db
-    .select({
-      userId: messages.userId,
-      userName: messages.userName,
-      avatarUrl: messages.avatarUrl,
-      totalUpvotes: sql<number>`SUM(${messages.upvotes})`,
-      totalDownvotes: sql<number>`SUM(${messages.downvotes})`,
-      netScore: sql<number>`SUM(${messages.upvotes}) - SUM(${messages.downvotes})`,
-      messageCount: sql<number>`COUNT(*)`,
-      lastMessageAt: sql<string>`MAX(${messages.createdAt})`,
-    })
-    .from(messages)
-    .where(where)
-    .groupBy(messages.userId, messages.userName, messages.avatarUrl)
-    .orderBy(...orderBy)
-    .limit(limit)
-    .offset(offset);
+  const userLeaderboard = await db.select({
+      userId: aggregatedMessages.userId,
+      userName: aggregatedMessages.userName,
+      avatarUrl: aggregatedMessages.avatarUrl,
+      totalUpvotes: aggregatedMessages.totalUpvotes,
+      totalDownvotes: aggregatedMessages.totalDownvotes,
+      netScore: aggregatedMessages.netScore,
+      messageCount: aggregatedMessages.messageCount,
+      lastMessageAt: aggregatedMessages.lastMessageAt,
+      givenUpvotes: sql<number>`coalesce(${userStats.givenUpvotes}, 0)`,
+      givenDownvotes: sql<number>`coalesce(${userStats.givenDownvotes}, 0)`,
+  })
+  .from(aggregatedMessages)
+  .leftJoin(userStats, eq(aggregatedMessages.userId, userStats.userId))
+  .orderBy(...orderBy)
+  .limit(limit)
+  .offset(offset);
 
   return NextResponse.json(userLeaderboard);
 } 

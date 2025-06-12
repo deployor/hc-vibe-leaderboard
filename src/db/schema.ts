@@ -39,4 +39,13 @@ export const messages = pgTable(
 
 export const optedOutUsers = pgTable("opted_out_users", {
   slackUserId: text("slack_user_id").primaryKey(),
+});
+
+export const userStats = pgTable("user_stats", {
+  userId: text("user_id").primaryKey(),
+  userName: text("user_name").notNull(),
+  avatarUrl: text("avatar_url"),
+  givenUpvotes: integer("given_upvotes").default(0).notNull(),
+  givenDownvotes: integer("given_downvotes").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }); 

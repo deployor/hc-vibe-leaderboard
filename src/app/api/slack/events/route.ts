@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
-import { messages, optedOutUsers } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { messages, optedOutUsers, userStats } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
-      const { reaction, item } = event;
+      const { reaction, item, user: reactingUserId } = event;
 
       const upvoteReactions = ["upvote", "this"];
       const downvoteReactions = ["downvote"];
@@ -74,6 +74,47 @@ export async function POST(req: NextRequest) {
         !downvoteReactions.includes(reaction)
       ) {
         return NextResponse.json({ ok: true });
+      }
+
+      // --- Update stats for the user who GAVE the reaction ---
+      if (reactingUserId) {
+        const isAdd = event.type === "reaction_added";
+        let givenUpvoteChange = 0;
+        let givenDownvoteChange = 0;
+
+        if (upvoteReactions.includes(reaction)) {
+            givenUpvoteChange = isAdd ? 1 : -1;
+        } else if (downvoteReactions.includes(reaction)) {
+            givenDownvoteChange = isAdd ? 1 : -1;
+        }
+
+        if (givenUpvoteChange !== 0 || givenDownvoteChange !== 0) {
+            const reactingUserStats = await db.query.userStats.findFirst({
+                where: eq(userStats.userId, reactingUserId),
+            });
+
+            if (reactingUserStats) {
+                await db.update(userStats)
+                    .set({
+                        givenUpvotes: sql`${userStats.givenUpvotes} + ${givenUpvoteChange}`,
+                        givenDownvotes: sql`${userStats.givenDownvotes} + ${givenDownvoteChange}`,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(userStats.userId, reactingUserId));
+            } else {
+                const userInfo = await slack.users.info({ user: reactingUserId });
+                if (userInfo.ok && userInfo.user) {
+                    await db.insert(userStats).values({
+                        userId: reactingUserId,
+                        userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
+                        avatarUrl: userInfo.user.profile?.image_72,
+                        givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
+                        givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
+                        updatedAt: new Date(),
+                    });
+                }
+            }
+        }
       }
 
       const { channel, ts } = item;
