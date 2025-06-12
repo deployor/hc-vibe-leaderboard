@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X, MessageSquare, Users, User as UserIcon, Smile, ChevronDown } from "lucide-react";
+import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X, MessageSquare, Users, User as UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { LucideIcon } from "lucide-react";
-import { EMOJI_CATEGORIES, COLOR_CLASSES } from "@/lib/emoji-config";
 
 declare global {
   interface Window {
@@ -33,17 +32,6 @@ interface Message {
   isThreadReply?: boolean;
   parentContent?: string | null;
   parentUserName?: string | null;
-  // New emoji fields
-  hearts?: number;
-  pingBad?: number;
-  pingGood?: number;
-  yipeeParrot?: number;
-  nooo?: number;
-  eyes?: number;
-  skull?: number;
-  leek?: number;
-  real?: number;
-  same?: number;
 }
 
 interface User {
@@ -57,9 +45,6 @@ interface User {
   lastMessageAt: string;
   givenUpvotes: number;
   givenDownvotes: number;
-  // Emoji mode fields
-  totalReceived?: number;
-  totalGiven?: number;
 }
 
 const PAGE_SIZE = 20;
@@ -264,12 +249,9 @@ const ViewButton = ({
   );
 };
 
-const UserCard = ({ user, index, mode, selectedCategory }: { user: User; index: number; mode: string; selectedCategory: string }) => {
+const UserCard = ({ user, index }: { user: User; index: number }) => {
   const scoreColor =
     user.netScore > 0 ? "text-emerald-400" : user.netScore < 0 ? "text-red-400" : "text-slate-400";
-  
-  const currentCategory = EMOJI_CATEGORIES.find(c => c.id === selectedCategory);
-  const displayValue = mode === "emoji" ? (user.totalReceived || 0) : user.netScore;
 
   return (
     <motion.div
@@ -288,21 +270,13 @@ const UserCard = ({ user, index, mode, selectedCategory }: { user: User; index: 
       <div className="flex gap-5">
         <div className="flex flex-col items-center w-20 flex-shrink-0">
           <div className={`font-bold text-xl ${scoreColor} text-center group relative`}>
-            {mode === "emoji" && currentCategory ? (
-              <div className={`p-2 rounded-lg transition-all duration-200 ${COLOR_CLASSES[currentCategory.color as keyof typeof COLOR_CLASSES]?.bg || "bg-slate-500/10"}`}>
-                <span className="text-2xl">{currentCategory.icon}</span>
-                <div className="text-3xl font-black py-1">{displayValue}</div>
-                <span className="text-xs text-slate-400 uppercase tracking-wide">{currentCategory.displayName}</span>
-              </div>
-            ) : (
-              <div className={`p-2 rounded-lg transition-all duration-200 ${
-                user.netScore > 0 ? "bg-emerald-500/10" : user.netScore < 0 ? "bg-red-500/10" : "bg-slate-500/10"
-              }`}>
-                <ArrowBigUp size={24} className={user.netScore > 0 ? "text-emerald-400" : "text-slate-600"} />
-                <div className="text-3xl font-black py-1">{user.netScore}</div>
-                <ArrowBigDown size={24} className={user.netScore < 0 ? "text-red-400" : "text-slate-600"} />
-              </div>
-            )}
+            <div className={`p-2 rounded-lg transition-all duration-200 ${
+              user.netScore > 0 ? "bg-emerald-500/10" : user.netScore < 0 ? "bg-red-500/10" : "bg-slate-500/10"
+            }`}>
+              <ArrowBigUp size={24} className={user.netScore > 0 ? "text-emerald-400" : "text-slate-600"} />
+              <div className="text-3xl font-black py-1">{user.netScore}</div>
+              <ArrowBigDown size={24} className={user.netScore < 0 ? "text-red-400" : "text-slate-600"} />
+            </div>
             
             <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
               <div className="flex justify-between items-center mb-2">
@@ -345,69 +319,37 @@ const UserCard = ({ user, index, mode, selectedCategory }: { user: User; index: 
           </div>
 
           <div className="space-y-4">
-            {mode === "emoji" && currentCategory ? (
-              <>
-                <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
-                  <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">{currentCategory.displayName} Received</h4>
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <div className={`text-2xl font-bold ${COLOR_CLASSES[currentCategory.color as keyof typeof COLOR_CLASSES]?.text || "text-slate-400"}`}>
-                        {user.totalReceived || 0}
-                      </div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Total {currentCategory.displayName}</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-blue-400">{user.messageCount}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Messages</div>
-                    </div>
-                  </div>
+            <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
+              <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">Reactions Received</h4>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-emerald-400">{user.totalUpvotes}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Total Upvotes</div>
                 </div>
+                <div>
+                  <div className="text-2xl font-bold text-red-400">{user.totalDownvotes}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Total Downvotes</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-400">{user.messageCount}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Messages</div>
+                </div>
+              </div>
+            </div>
 
-                <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
-                  <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">{currentCategory.displayName} Given</h4>
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${COLOR_CLASSES[currentCategory.color as keyof typeof COLOR_CLASSES]?.text || "text-slate-400"}`}>
-                      {user.totalGiven || 0}
-                    </div>
-                    <div className="text-xs text-slate-400 uppercase tracking-wide">{currentCategory.displayName} Given</div>
-                  </div>
+            <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
+              <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">Reactions Given</h4>
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-emerald-400">{user.givenUpvotes}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Upvotes Given</div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
-                  <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">Reactions Received</h4>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-emerald-400">{user.totalUpvotes}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Total Upvotes</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-red-400">{user.totalDownvotes}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Total Downvotes</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-blue-400">{user.messageCount}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Messages</div>
-                    </div>
-                  </div>
+                <div>
+                  <div className="text-2xl font-bold text-red-400">{user.givenDownvotes}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Downvotes Given</div>
                 </div>
-
-                <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/30">
-                  <h4 className="text-xs text-slate-400 uppercase tracking-wide mb-3 text-center font-semibold">Reactions Given</h4>
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-emerald-400">{user.givenUpvotes}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Upvotes Given</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-red-400">{user.givenDownvotes}</div>
-                      <div className="text-xs text-slate-400 uppercase tracking-wide">Downvotes Given</div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -415,32 +357,10 @@ const UserCard = ({ user, index, mode, selectedCategory }: { user: User; index: 
   );
 };
 
-const MessageCard = ({ msg, index, mode, selectedCategory }: { msg: Message; index: number; mode: string; selectedCategory: string }) => {
+const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
   const score = msg.upvotes - msg.downvotes;
   const scoreColor =
     score > 0 ? "text-emerald-400" : score < 0 ? "text-red-400" : "text-slate-400";
-  
-  // Get emoji count for current category
-  const getEmojiCount = (categoryId: string) => {
-    switch (categoryId) {
-      case "hearts": return msg.hearts || 0;
-      case "ping_bad": return msg.pingBad || 0;
-      case "ping_good": return msg.pingGood || 0;
-      case "yipee_parrot": return msg.yipeeParrot || 0;
-      case "nooo": return msg.nooo || 0;
-      case "eyes": return msg.eyes || 0;
-      case "skull": return msg.skull || 0;
-      case "leek": return msg.leek || 0;
-      case "real": return msg.real || 0;
-      case "same": return msg.same || 0;
-      case "upvotes": return msg.upvotes || 0;
-      case "downvotes": return msg.downvotes || 0;
-      default: return 0;
-    }
-  };
-  
-  const currentCategory = EMOJI_CATEGORIES.find(c => c.id === selectedCategory);
-  const emojiCount = mode === "emoji" ? getEmojiCount(selectedCategory) : 0;
 
   return (
     <motion.div
@@ -459,45 +379,23 @@ const MessageCard = ({ msg, index, mode, selectedCategory }: { msg: Message; ind
       <div className="flex gap-5">
         <div className="flex flex-col items-center w-20 flex-shrink-0">
           <div className={`font-bold text-xl ${scoreColor} text-center group relative`}>
-            {mode === "emoji" && currentCategory ? (
-              <div className={`p-2 rounded-lg transition-all duration-200 ${COLOR_CLASSES[currentCategory.color as keyof typeof COLOR_CLASSES]?.bg || "bg-slate-500/10"}`}>
-                <span className="text-2xl">{currentCategory.icon}</span>
-                <div className="text-3xl font-black py-1">{emojiCount}</div>
-                <span className="text-xs text-slate-400 uppercase tracking-wide">{currentCategory.displayName}</span>
-              </div>
-            ) : (
-              <div className={`p-2 rounded-lg transition-all duration-200 ${
-                score > 0 ? "bg-emerald-500/10" : score < 0 ? "bg-red-500/10" : "bg-slate-500/10"
-              }`}>
-                <ArrowBigUp size={24} className={score > 0 ? "text-emerald-400" : "text-slate-600"} />
-                <div className="text-3xl font-black py-1">{score}</div>
-                <ArrowBigDown size={24} className={score < 0 ? "text-red-400" : "text-slate-600"} />
-              </div>
-            )}
+            <div className={`p-2 rounded-lg transition-all duration-200 ${
+              score > 0 ? "bg-emerald-500/10" : score < 0 ? "bg-red-500/10" : "bg-slate-500/10"
+            }`}>
+              <ArrowBigUp size={24} className={score > 0 ? "text-emerald-400" : "text-slate-600"} />
+              <div className="text-3xl font-black py-1">{score}</div>
+              <ArrowBigDown size={24} className={score < 0 ? "text-red-400" : "text-slate-600"} />
+            </div>
             
             <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
-              {mode === "emoji" && currentCategory ? (
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className={`font-medium ${COLOR_CLASSES[currentCategory.color as keyof typeof COLOR_CLASSES]?.text || "text-slate-400"}`}>
-                      {currentCategory.displayName}:
-                    </span>
-                    <span className="text-white font-bold text-lg">{emojiCount}</span>
-                  </div>
-                  <div className="text-xs text-slate-400">{currentCategory.description}</div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-emerald-400 font-medium">Upvotes:</span>
-                    <span className="text-white font-bold text-lg">{msg.upvotes}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-red-400 font-medium">Downvotes:</span>
-                    <span className="text-white font-bold text-lg">{msg.downvotes}</span>
-                  </div>
-                </>
-              )}
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-emerald-400 font-medium">Upvotes:</span>
+                <span className="text-white font-bold text-lg">{msg.upvotes}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-red-400 font-medium">Downvotes:</span>
+                <span className="text-white font-bold text-lg">{msg.downvotes}</span>
+              </div>
               <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-4 bg-slate-900/95 border-b border-l border-slate-600/50 rotate-45"></div>
             </div>
           </div>
@@ -644,10 +542,6 @@ export default function LeaderboardPage() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [isInfoModalOpen, setInfoModalOpen] = useState(false);
-  // Emoji mode state
-  const [mode, setMode] = useState("vibes"); // "vibes" or "emoji"
-  const [selectedCategory, setSelectedCategory] = useState("hearts");
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Identify user for analytics
   useEffect(() => {
@@ -689,23 +583,8 @@ export default function LeaderboardPage() {
 
     try {
       const currentOffset = isInitialLoad ? 0 : offset;
-      let endpoint;
-      let queryParams;
-      
-      if (mode === "emoji") {
-        // Use emoji-specific endpoints
-        endpoint = view === "posts" ? "/api/leaderboard/emoji" : "/api/leaderboard/emoji/users";
-        queryParams = `filter=${filter}&category=${selectedCategory}&limit=${PAGE_SIZE}&offset=${currentOffset}`;
-        if (view === "users") {
-          queryParams += `&sort=${sort === "upvotes" ? "received" : "given"}`;
-        }
-      } else {
-        // Use regular endpoints
-        endpoint = view === "posts" ? "/api/leaderboard" : "/api/leaderboard/users";
-        queryParams = `filter=${filter}&sort=${sort}&limit=${PAGE_SIZE}&offset=${currentOffset}`;
-      }
-      
-      const res = await fetch(`${endpoint}?${queryParams}`);
+      const endpoint = view === "posts" ? "/api/leaderboard" : "/api/leaderboard/users";
+      const res = await fetch(`${endpoint}?filter=${filter}&sort=${sort}&limit=${PAGE_SIZE}&offset=${currentOffset}`);
       if (res.status === 401) {
         window.location.href = "/";
         return;
@@ -714,14 +593,12 @@ export default function LeaderboardPage() {
         throw new Error(`Failed to fetch ${view}`);
       }
       
-      const data = await res.json();
-      
       if (view === "posts") {
-        const newMessages: Message[] = mode === "emoji" ? data.messages : data;
+        const newMessages: Message[] = await res.json();
         setMessages(prev => isInitialLoad ? newMessages : [...prev, ...newMessages]);
         setHasMore(newMessages.length === PAGE_SIZE);
       } else {
-        const newUsers: User[] = mode === "emoji" ? data.users : data;
+        const newUsers: User[] = await res.json();
         setUsers(prev => isInitialLoad ? newUsers : [...prev, ...newUsers]);
         setHasMore(newUsers.length === PAGE_SIZE);
       }
@@ -767,19 +644,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     fetchData(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, sort, view, mode, selectedCategory]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      setShowCategoryDropdown(false);
-    };
-    
-    if (showCategoryDropdown) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showCategoryDropdown]);
+  }, [filter, sort, view]);
   
   // Setup SSE connection
   useEffect(() => {
@@ -826,24 +691,14 @@ export default function LeaderboardPage() {
                 animate={{ y: [-2, 2, -2] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               >
-                {mode === "vibes" ? (
-                  <ArrowBigUp className="text-emerald-500" size={48} strokeWidth={2.5} />
-                ) : (
-                  <span className="text-4xl">{EMOJI_CATEGORIES.find(c => c.id === selectedCategory)?.icon || "💖"}</span>
-                )}
+                <ArrowBigUp className="text-emerald-500" size={48} strokeWidth={2.5} />
               </motion.div>
-              <span className="mx-4 tracking-tight">
-                {mode === "vibes" ? "Vibe Check" : "Emoji Tracker"}
-              </span>
+              <span className="mx-4 tracking-tight">Vibe Check</span>
               <motion.div
                 animate={{ y: [2, -2, 2] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
               >
-                {mode === "vibes" ? (
-                  <ArrowBigDown className="text-red-500" size={48} strokeWidth={2.5} />
-                ) : (
-                  <span className="text-4xl">{EMOJI_CATEGORIES.find(c => c.id === selectedCategory)?.icon || "💖"}</span>
-                )}
+                <ArrowBigDown className="text-red-500" size={48} strokeWidth={2.5} />
               </motion.div>
             </div>
             <div className="flex items-center justify-center gap-2">
@@ -855,63 +710,6 @@ export default function LeaderboardPage() {
           </div>
           
           <div className="space-y-4">
-            {/* Mode Toggle */}
-            <div className="flex justify-center gap-4 flex-wrap">
-              <ControlButton
-                label="Vibe Check"
-                icon={ArrowBigUp}
-                isActive={mode === "vibes"}
-                onClick={() => setMode("vibes")}
-                activeGradient="bg-gradient-to-r from-emerald-500 to-green-500"
-              />
-              <ControlButton
-                label="Emoji Tracker"
-                icon={Smile}
-                isActive={mode === "emoji"}
-                onClick={() => setMode("emoji")}
-                activeGradient="bg-gradient-to-r from-pink-500 to-purple-500"
-              />
-            </div>
-
-            {/* Emoji Category Selector */}
-            {mode === "emoji" && (
-              <div className="flex justify-center">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="flex items-center gap-2 px-6 py-3 bg-slate-800/90 hover:bg-slate-800/80 border border-slate-600/50 rounded-lg transition-all duration-200"
-                  >
-                    <span className="text-2xl">{EMOJI_CATEGORIES.find(c => c.id === selectedCategory)?.icon}</span>
-                    <span className="text-white font-medium">{EMOJI_CATEGORIES.find(c => c.id === selectedCategory)?.displayName}</span>
-                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {showCategoryDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-slate-600/50 rounded-lg shadow-xl z-50 max-h-64 overflow-y-auto">
-                      {EMOJI_CATEGORIES.filter(c => !["upvotes", "downvotes", "yay", "sob", "star", "fire"].includes(c.id)).map((category) => (
-                        <button
-                          key={category.id}
-                          onClick={() => {
-                            setSelectedCategory(category.id);
-                            setShowCategoryDropdown(false);
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/50 transition-colors ${
-                            selectedCategory === category.id ? 'bg-slate-700/50' : ''
-                          }`}
-                        >
-                          <span className="text-xl">{category.icon}</span>
-                          <div className="text-left">
-                            <div className="text-white font-medium">{category.displayName}</div>
-                            <div className="text-slate-400 text-sm">{category.description}</div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* View Toggle */}
             <div className="flex justify-center gap-4 flex-wrap">
               <ViewButton label="Posts" icon={MessageSquare} view={view} setView={setView} />
@@ -919,29 +717,10 @@ export default function LeaderboardPage() {
             </div>
             
             {/* Sort Controls */}
-            {mode === "vibes" ? (
-              <div className="flex justify-center gap-4 flex-wrap">
-                <SortButton label="Most Upvotes" icon={ThumbsUp} sort={sort} setSort={setSort} />
-                <SortButton label="Most Downvotes" icon={ThumbsDown} sort={sort} setSort={setSort} />
-              </div>
-            ) : view === "users" ? (
-              <div className="flex justify-center gap-4 flex-wrap">
-                <ControlButton
-                  label="Most Received"
-                  icon={ThumbsUp}
-                  isActive={sort === "upvotes"}
-                  onClick={() => setSort("upvotes")}
-                  activeGradient="bg-gradient-to-r from-green-500 to-emerald-500"
-                />
-                <ControlButton
-                  label="Most Given"
-                  icon={ThumbsDown}
-                  isActive={sort === "downvotes"}
-                  onClick={() => setSort("downvotes")}
-                  activeGradient="bg-gradient-to-r from-purple-500 to-pink-500"
-                />
-              </div>
-            ) : null}
+            <div className="flex justify-center gap-4 flex-wrap">
+              <SortButton label="Most Upvotes" icon={ThumbsUp} sort={sort} setSort={setSort} />
+              <SortButton label="Most Downvotes" icon={ThumbsDown} sort={sort} setSort={setSort} />
+            </div>
             
             {/* Time Filters */}
             <div className="flex justify-center gap-4 flex-wrap">
@@ -966,7 +745,7 @@ export default function LeaderboardPage() {
                   messages.length > 0 ? (
                     <div className="space-y-6">
                       {messages.map((msg, index) => (
-                        <MessageCard key={msg.id} msg={msg} index={index} mode={mode} selectedCategory={selectedCategory} />
+                        <MessageCard key={msg.id} msg={msg} index={index} />
                       ))}
                     </div>
                   ) : (
@@ -986,7 +765,7 @@ export default function LeaderboardPage() {
                   users.length > 0 ? (
                     <div className="space-y-6">
                       {users.map((user, index) => (
-                        <UserCard key={user.userId} user={user} index={index} mode={mode} selectedCategory={selectedCategory} />
+                        <UserCard key={user.userId} user={user} index={index} />
                       ))}
                     </div>
                   ) : (
