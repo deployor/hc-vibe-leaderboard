@@ -306,123 +306,6 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
   const scoreColor =
     score > 0 ? "text-emerald-400" : score < 0 ? "text-red-400" : "text-slate-400";
 
-  // Compact layout for threaded messages
-  if (msg.isThreadReply && msg.parentContent && msg.parentUserName) {
-    return (
-      <motion.div
-        layout
-        layoutId={`message-${msg.id}`}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        transition={{ 
-          layout: { duration: 0.5, ease: "easeInOut" },
-          opacity: { duration: 0.3 },
-          y: { duration: 0.3, delay: index * 0.02 }
-        }}
-        className="relative bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 hover:border-slate-600/50 rounded-xl p-4 shadow-xl backdrop-blur-sm transition-all duration-200 hover:shadow-2xl hover:scale-[1.02]"
-      >
-        {/* Parent message context */}
-        <div className="mb-3 p-3 bg-slate-700/30 border-l-4 border-blue-500/50 rounded-r-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-            <span className="text-xs text-blue-400 font-medium uppercase tracking-wide">
-              Original by {msg.parentUserName}
-            </span>
-          </div>
-          <p className="text-slate-400 text-sm italic line-clamp-2">
-            {msg.parentContent.length > 120 
-              ? `${msg.parentContent.substring(0, 120)}...` 
-              : msg.parentContent}
-          </p>
-        </div>
-
-        {/* Compact reply layout */}
-        <div className="flex gap-4">
-          {/* Voting display - smaller and on the left */}
-          <div className="flex flex-col items-center w-16 flex-shrink-0">
-            <div className={`font-bold text-lg ${scoreColor} text-center group relative`}>
-              <div className={`p-1.5 rounded-lg transition-all duration-200 ${
-                score > 0 ? "bg-emerald-500/10" : score < 0 ? "bg-red-500/10" : "bg-slate-500/10"
-              }`}>
-                <ArrowBigUp size={18} className={score > 0 ? "text-emerald-400" : "text-slate-600"} />
-                <div className="text-xl font-black py-0.5">{score}</div>
-                <ArrowBigDown size={18} className={score < 0 ? "text-red-400" : "text-slate-600"} />
-              </div>
-              
-              <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 w-40 p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-emerald-400 font-medium">Upvotes:</span>
-                  <span className="text-white font-bold">{msg.upvotes}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-red-400 font-medium">Downvotes:</span>
-                  <span className="text-white font-bold">{msg.downvotes}</span>
-                </div>
-                <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-4 bg-slate-900/95 border-b border-l border-slate-600/50 rotate-45"></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Reply content */}
-          <div className="flex-grow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="relative">
-                {msg.avatarUrl ? (
-                  <Image
-                    src={msg.avatarUrl}
-                    alt={msg.userName}
-                    width={36}
-                    height={36}
-                    className="rounded-full ring-2 ring-slate-600/50"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                    {msg.userName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="font-semibold text-white">{msg.userName}</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Clock size={10} />
-                    {getRelativeTime(new Date(msg.createdAt))}
-                  </p>
-                  {msg.channelName && (
-                    <>
-                      <span className="text-slate-600">&middot;</span>
-                      <p className="text-xs text-slate-400">#{msg.channelName}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <p className="text-slate-300 whitespace-pre-wrap break-words leading-relaxed text-sm">
-              {msg.content}
-            </p>
-          </div>
-          
-          {/* Link to thread */}
-          <a
-            href={`https://slack.com/archives/${msg.channelId}/p${msg.messageTs.replace(
-              ".",
-              ""
-            )}?thread_ts=${msg.threadTs}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="self-start text-slate-500 hover:text-blue-400 transition-all duration-200 p-2 rounded-lg hover:bg-blue-500/10 hover:scale-110"
-            title="View thread on Slack"
-          >
-            <ArrowRight size={16} />
-          </a>
-        </div>
-      </motion.div>
-    );
-  }
-
-  // Regular layout for non-threaded messages
   return (
     <motion.div
       layout
@@ -513,6 +396,23 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
             </div>
           </div>
           
+          {/* Thread context */}
+          {msg.isThreadReply && msg.parentContent && msg.parentUserName && (
+            <div className="mb-4 p-3 bg-slate-700/30 border-l-4 border-blue-500/50 rounded-r-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                <span className="text-xs text-blue-400 font-medium uppercase tracking-wide">
+                  Reply to {msg.parentUserName}
+                </span>
+              </div>
+              <p className="text-slate-400 text-sm italic line-clamp-2">
+                {msg.parentContent.length > 100 
+                  ? `${msg.parentContent.substring(0, 100)}...` 
+                  : msg.parentContent}
+              </p>
+            </div>
+          )}
+          
           <p className="text-slate-300 whitespace-pre-wrap break-words leading-relaxed text-base">
             {msg.content}
           </p>
@@ -522,11 +422,11 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
           href={`https://slack.com/archives/${msg.channelId}/p${msg.messageTs.replace(
             ".",
             ""
-          )}`}
+          )}${msg.isThreadReply && msg.threadTs ? `?thread_ts=${msg.threadTs}` : ""}`}
           target="_blank"
           rel="noopener noreferrer"
           className="self-start text-slate-500 hover:text-blue-400 transition-all duration-200 p-3 rounded-lg hover:bg-blue-500/10 hover:scale-110"
-          title="View on Slack"
+          title={msg.isThreadReply ? "View thread on Slack" : "View on Slack"}
         >
           <ArrowRight size={20} />
         </a>

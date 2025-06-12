@@ -66,8 +66,6 @@ export async function POST(req: NextRequest) {
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
       const { reaction, item } = event;
 
-      console.log("Received reaction event for item:", JSON.stringify(item, null, 2));
-
       const upvoteReactions = ["upvote"];
       const downvoteReactions = ["downvote"];
 
@@ -78,69 +76,63 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      const { channel, ts: messageTs } = item;
+      const { channel, ts } = item;
+      // Check if this is a threaded message
+      const threadTs = item.thread_ts;
+      const isThreadReply = threadTs && threadTs !== ts;
 
       const message = await db.query.messages.findFirst({
-        where: eq(messages.messageTs, messageTs),
+        where: eq(messages.messageTs, ts),
       });
 
       // --- Check if the message author has opted out ---
-      // We no longer check the DB first. We must fetch the message from Slack
-      // to determine if it's a thread reply and get the author.
+      const messageAuthorId = message?.userId;
+      if (messageAuthorId) {
+        const isOptedOut = await db.query.optedOutUsers.findFirst({
+          where: eq(optedOutUsers.slackUserId, messageAuthorId),
+        });
+        if (isOptedOut) {
+          console.log(`Ignoring reaction for message by opted-out user ${messageAuthorId}`);
+          return NextResponse.json({ ok: true });
+        }
+      }
       
-      // If message doesn't exist yet, we need to fetch it to get details and check author's opt-out status.
+      // If message doesn't exist yet, we need to fetch its author to check opt-out status
       if (!message) {
         try {
-          // STEP 1: Fetch the reacted-to message to get its full details.
-          // This is the only reliable way to check for `thread_ts`.
-          const historyResult = await slack.conversations.history({
-            channel,
-            latest: messageTs,
-            oldest: messageTs,
-            limit: 1,
-            inclusive: true,
-          });
-
-          const messageData = historyResult.messages?.[0];
-
-          if (!messageData || !messageData.user || !messageData.text) {
-            console.error("Message details not found in Slack for ts:", messageTs);
-            return NextResponse.json({ error: "Message details not found" }, { status: 404 });
-          }
-          
-          // STEP 2: Now that we have the full message, we can reliably check for `thread_ts`.
-          const actualThreadTs = messageData.thread_ts; 
-          const isThreadReply = !!(actualThreadTs && actualThreadTs !== messageTs);
-
+          let messageData;
           let parentContent = null;
           let parentUserName = null;
 
-          // STEP 3: If it's a thread reply, fetch the parent message for context.
           if (isThreadReply) {
-            const parentHistory = await slack.conversations.history({
-              channel,
-              latest: actualThreadTs,
-              oldest: actualThreadTs,
-              limit: 1,
-              inclusive: true,
+            // For threaded messages, we need to fetch from the thread
+            const threadHistory = await slack.conversations.replies({ 
+              channel, 
+              ts: threadTs!,
+              inclusive: true 
             });
-            const parentMessageData = parentHistory.messages?.[0];
-
-            if (parentMessageData) {
-              parentContent = parentMessageData.text || "";
-              if (parentMessageData.user) {
-                try {
-                  const parentUserInfo = await slack.users.info({ user: parentMessageData.user });
-                  parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-                } catch (error) {
-                  console.error(`Error fetching parent user info for ${parentMessageData.user}:`, error);
-                  parentUserName = "Unknown";
-                }
-              }
-            }
+            messageData = threadHistory.messages?.find(msg => msg.ts === ts);
+            
+            // Also fetch the parent message for context (it should be the first message in the thread)
+            const parentMessage = threadHistory.messages?.[0];
+            if (parentMessage && parentMessage.ts === threadTs) {
+              parentContent = parentMessage.text || "";
+              const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
+              parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+                        }
+            
+            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
+          } else {
+            // For regular messages, use conversations.history
+            const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
+            messageData = history.messages?.[0];
           }
 
-          // STEP 4: Check opt-out status BEFORE creating the record
+          if (!messageData || !messageData.user || !messageData.text) {
+            return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
+          }
+
+          // --- Check opt-out status BEFORE creating the record ---
           const isOptedOut = await db.query.optedOutUsers.findFirst({
             where: eq(optedOutUsers.slackUserId, messageData.user),
           });
@@ -158,7 +150,7 @@ export async function POST(req: NextRequest) {
           const avatarUrl = userInfo.user?.profile?.image_72;
           const channelName = channelInfo.channel?.name || "unknown-channel";
 
-          const reactionData = await slack.reactions.get({ channel, timestamp: messageTs });
+          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
           let initialUpvotes = 0;
           let initialDownvotes = 0;
 
@@ -170,7 +162,7 @@ export async function POST(req: NextRequest) {
           }
 
           await db.insert(messages).values({
-            messageTs: messageTs,
+            messageTs: ts,
             channelId: channel,
             channelName: channelName,
             userId: messageData.user,
@@ -179,8 +171,8 @@ export async function POST(req: NextRequest) {
             content: messageData.text,
             upvotes: initialUpvotes,
             downvotes: initialDownvotes,
-            threadTs: actualThreadTs || null,
-            isThreadReply: isThreadReply,
+            threadTs: threadTs || null,
+            isThreadReply: isThreadReply || false,
             parentContent: parentContent,
             parentUserName: parentUserName,
             updatedAt: new Date(),
@@ -194,53 +186,6 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        // Message exists. We need to check if we have its thread status correctly.
-        const isThreadReply = !!message.threadTs;
-        
-        // This backfill logic remains valid. If a message exists but is missing parent
-        // details, this will attempt to fetch them.
-        if (isThreadReply && (!message.parentContent || !message.parentUserName)) {
-          console.log(`Backfilling parent content for existing thread reply ${messageTs}`);
-          try {
-             const parentHistory = await slack.conversations.history({
-              channel,
-              latest: message.threadTs!,
-              oldest: message.threadTs!,
-              limit: 1,
-              inclusive: true,
-            });
-            
-            const parentMessage = parentHistory.messages?.[0];
-            if (parentMessage) {
-              const parentContent = parentMessage.text || "";
-              let parentUserName = "Unknown";
-              
-              if (parentMessage.user) {
-                try {
-                  const parentUserInfo = await slack.users.info({ user: parentMessage.user });
-                  parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-                } catch (error) {
-                  console.error(`Error fetching parent user info for ${parentMessage.user}:`, error);
-                }
-              }
-              
-              // Update the message with parent content
-              await db.update(messages)
-                .set({
-                  isThreadReply: true,
-                  parentContent: parentContent,
-                  parentUserName: parentUserName,
-                  updatedAt: new Date(),
-                })
-                .where(eq(messages.messageTs, messageTs));
-                
-              console.log(`Successfully backfilled parent content for thread reply ${messageTs}`);
-            }
-          } catch (error) {
-            console.error(`Error backfilling parent content for thread reply ${messageTs}:`, error);
-          }
-        }
-
         const isUpvote = upvoteReactions.includes(reaction);
         const isAdd = event.type === "reaction_added";
         
@@ -254,15 +199,15 @@ export async function POST(req: NextRequest) {
             totalReactions: sql`${messages.totalReactions} + 1`,
             updatedAt: new Date(),
           })
-          .where(eq(messages.messageTs, messageTs))
+          .where(eq(messages.messageTs, ts))
           .returning({ totalReactions: messages.totalReactions });
         
         const totalReactions = updated[0]?.totalReactions ?? 0;
 
         if (totalReactions > 0 && totalReactions % 10 === 0) {
-          console.log(`Performing periodic re-sync for message ${messageTs} at ${totalReactions} reactions.`);
+          console.log(`Performing periodic re-sync for message ${ts} at ${totalReactions} reactions.`);
           
-          const reactionData = await slack.reactions.get({ channel, timestamp: messageTs });
+          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
           let authoritativeUpvotes = 0;
           let authoritativeDownvotes = 0;
 
@@ -279,7 +224,7 @@ export async function POST(req: NextRequest) {
               downvotes: authoritativeDownvotes,
               updatedAt: new Date(),
             })
-            .where(eq(messages.messageTs, messageTs));
+            .where(eq(messages.messageTs, ts));
         }
       }
     }
