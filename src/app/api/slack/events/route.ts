@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { messages, optedOutUsers, userStats } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
+import { getAllTrackedEmojis, getEmojiCategory } from "@/lib/emoji-config";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
@@ -66,23 +67,7 @@ export async function POST(req: NextRequest) {
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
       const { reaction, item, user: reactingUserId } = event;
 
-      const upvoteReactions = ["upvote", "this"];
-      const downvoteReactions = ["downvote"];
-      const yayReactions = ["yay"];
-      const sobReactions = ["sob", "heavysob", "pf"];
-      const heartReactions = ["sparkling_heart", "heart"];
-      const starReactions = ["star"];
-      const fireReactions = ["fire"];
-
-      const allTrackedReactions = [
-        ...upvoteReactions,
-        ...downvoteReactions,
-        ...yayReactions,
-        ...sobReactions,
-        ...heartReactions,
-        ...starReactions,
-        ...fireReactions,
-      ];
+      const allTrackedReactions = getAllTrackedEmojis();
 
       if (!allTrackedReactions.includes(reaction)) {
         return NextResponse.json({ ok: true });
@@ -92,67 +77,122 @@ export async function POST(req: NextRequest) {
       if (reactingUserId) {
         const isAdd = event.type === "reaction_added";
         const change = isAdd ? 1 : -1;
+        const category = getEmojiCategory(reaction);
         
-        let givenUpvoteChange = 0;
-        let givenDownvoteChange = 0;
-        let givenYayChange = 0;
-        let givenSobChange = 0;
-        let givenHeartChange = 0;
-        let givenStarChange = 0;
-        let givenFireChange = 0;
+        if (category) {
+          const reactingUserStats = await db.query.userStats.findFirst({
+            where: eq(userStats.userId, reactingUserId),
+          });
 
-        if (upvoteReactions.includes(reaction)) givenUpvoteChange = change;
-        else if (downvoteReactions.includes(reaction)) givenDownvoteChange = change;
-        else if (yayReactions.includes(reaction)) givenYayChange = change;
-        else if (sobReactions.includes(reaction)) givenSobChange = change;
-        else if (heartReactions.includes(reaction)) givenHeartChange = change;
-        else if (starReactions.includes(reaction)) givenStarChange = change;
-        else if (fireReactions.includes(reaction)) givenFireChange = change;
+          // Create update object based on category
+          const updateData: any = { updatedAt: new Date() };
+          const insertData: any = {
+            userId: reactingUserId,
+            userName: "Unknown",
+            avatarUrl: null,
+            updatedAt: new Date(),
+            // Initialize all fields to 0
+            givenUpvotes: 0,
+            givenDownvotes: 0,
+            givenYay: 0,
+            givenSob: 0,
+            givenHeart: 0,
+            givenStar: 0,
+            givenFire: 0,
+            givenHearts: 0,
+            givenPingBad: 0,
+            givenPingGood: 0,
+            givenYipeeParrot: 0,
+            givenNooo: 0,
+            givenEyes: 0,
+            givenSkull: 0,
+            givenLeek: 0,
+            givenReal: 0,
+            givenSame: 0,
+          };
 
-        if (
-          givenUpvoteChange ||
-          givenDownvoteChange ||
-          givenYayChange ||
-          givenSobChange ||
-          givenHeartChange ||
-          givenStarChange ||
-          givenFireChange
-        ) {
-            const reactingUserStats = await db.query.userStats.findFirst({
-                where: eq(userStats.userId, reactingUserId),
-            });
+          // Map category to database column
+          switch (category.id) {
+            case "upvotes":
+              updateData.givenUpvotes = sql`${userStats.givenUpvotes} + ${change}`;
+              insertData.givenUpvotes = change > 0 ? 1 : 0;
+              break;
+            case "downvotes":
+              updateData.givenDownvotes = sql`${userStats.givenDownvotes} + ${change}`;
+              insertData.givenDownvotes = change > 0 ? 1 : 0;
+              break;
+            case "yay":
+              updateData.givenYay = sql`${userStats.givenYay} + ${change}`;
+              insertData.givenYay = change > 0 ? 1 : 0;
+              break;
+            case "sob":
+              updateData.givenSob = sql`${userStats.givenSob} + ${change}`;
+              insertData.givenSob = change > 0 ? 1 : 0;
+              break;
+            case "hearts":
+              updateData.givenHeart = sql`${userStats.givenHeart} + ${change}`;
+              updateData.givenHearts = sql`${userStats.givenHearts} + ${change}`;
+              insertData.givenHeart = change > 0 ? 1 : 0;
+              insertData.givenHearts = change > 0 ? 1 : 0;
+              break;
+            case "star":
+              updateData.givenStar = sql`${userStats.givenStar} + ${change}`;
+              insertData.givenStar = change > 0 ? 1 : 0;
+              break;
+            case "fire":
+              updateData.givenFire = sql`${userStats.givenFire} + ${change}`;
+              insertData.givenFire = change > 0 ? 1 : 0;
+              break;
+            case "ping_bad":
+              updateData.givenPingBad = sql`${userStats.givenPingBad} + ${change}`;
+              insertData.givenPingBad = change > 0 ? 1 : 0;
+              break;
+            case "ping_good":
+              updateData.givenPingGood = sql`${userStats.givenPingGood} + ${change}`;
+              insertData.givenPingGood = change > 0 ? 1 : 0;
+              break;
+            case "yipee_parrot":
+              updateData.givenYipeeParrot = sql`${userStats.givenYipeeParrot} + ${change}`;
+              insertData.givenYipeeParrot = change > 0 ? 1 : 0;
+              break;
+            case "nooo":
+              updateData.givenNooo = sql`${userStats.givenNooo} + ${change}`;
+              insertData.givenNooo = change > 0 ? 1 : 0;
+              break;
+            case "eyes":
+              updateData.givenEyes = sql`${userStats.givenEyes} + ${change}`;
+              insertData.givenEyes = change > 0 ? 1 : 0;
+              break;
+            case "skull":
+              updateData.givenSkull = sql`${userStats.givenSkull} + ${change}`;
+              insertData.givenSkull = change > 0 ? 1 : 0;
+              break;
+            case "leek":
+              updateData.givenLeek = sql`${userStats.givenLeek} + ${change}`;
+              insertData.givenLeek = change > 0 ? 1 : 0;
+              break;
+            case "real":
+              updateData.givenReal = sql`${userStats.givenReal} + ${change}`;
+              insertData.givenReal = change > 0 ? 1 : 0;
+              break;
+            case "same":
+              updateData.givenSame = sql`${userStats.givenSame} + ${change}`;
+              insertData.givenSame = change > 0 ? 1 : 0;
+              break;
+          }
 
-            if (reactingUserStats) {
-                await db.update(userStats)
-                    .set({
-                        givenUpvotes: sql`${userStats.givenUpvotes} + ${givenUpvoteChange}`,
-                        givenDownvotes: sql`${userStats.givenDownvotes} + ${givenDownvoteChange}`,
-                        givenYay: sql`${userStats.givenYay} + ${givenYayChange}`,
-                        givenSob: sql`${userStats.givenSob} + ${givenSobChange}`,
-                        givenHeart: sql`${userStats.givenHeart} + ${givenHeartChange}`,
-                        givenStar: sql`${userStats.givenStar} + ${givenStarChange}`,
-                        givenFire: sql`${userStats.givenFire} + ${givenFireChange}`,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(userStats.userId, reactingUserId));
-            } else {
-                const userInfo = await slack.users.info({ user: reactingUserId });
-                if (userInfo.ok && userInfo.user) {
-                    await db.insert(userStats).values({
-                        userId: reactingUserId,
-                        userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
-                        avatarUrl: userInfo.user.profile?.image_72,
-                        givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
-                        givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
-                        givenYay: givenYayChange > 0 ? 1 : 0,
-                        givenSob: givenSobChange > 0 ? 1 : 0,
-                        givenHeart: givenHeartChange > 0 ? 1 : 0,
-                        givenStar: givenStarChange > 0 ? 1 : 0,
-                        givenFire: givenFireChange > 0 ? 1 : 0,
-                        updatedAt: new Date(),
-                    });
-                }
+          if (reactingUserStats) {
+            await db.update(userStats)
+              .set(updateData)
+              .where(eq(userStats.userId, reactingUserId));
+          } else {
+            const userInfo = await slack.users.info({ user: reactingUserId });
+            if (userInfo.ok && userInfo.user) {
+              insertData.userName = userInfo.user.profile?.display_name || userInfo.user.name || "Unknown";
+              insertData.avatarUrl = userInfo.user.profile?.image_72;
+              await db.insert(userStats).values(insertData);
             }
+          }
         }
       }
 
@@ -165,26 +205,46 @@ export async function POST(req: NextRequest) {
         console.log(`Re-syncing reactions for existing message ${ts}`);
         try {
           const reactionData = await slack.reactions.get({ channel, timestamp: ts });
+          
+          // Initialize counts for all categories
+          const categoryCounts: Record<string, number> = {};
           const upvoterIds = new Set<string>();
-          let authoritativeDownvotes = 0;
-
+          
           if (reactionData.ok && reactionData.message?.reactions) {
             for (const reactionItem of reactionData.message.reactions) {
-              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
-                reactionItem.users.forEach(u => upvoterIds.add(u));
-              }
-              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
-                authoritativeDownvotes = reactionItem.count ?? 0;
+              if (reactionItem.name && reactionItem.count) {
+                const category = getEmojiCategory(reactionItem.name);
+                if (category) {
+                  // Special handling for upvotes (count unique users)
+                  if (category.id === "upvotes" && reactionItem.users) {
+                    reactionItem.users.forEach(u => upvoterIds.add(u));
+                  } else {
+                    categoryCounts[category.id] = (categoryCounts[category.id] || 0) + reactionItem.count;
+                  }
+                }
               }
             }
           }
 
+          // Build update object
+          const updateData: any = {
+            upvotes: upvoterIds.size,
+            downvotes: categoryCounts.downvotes || 0,
+            hearts: categoryCounts.hearts || 0,
+            pingBad: categoryCounts.ping_bad || 0,
+            pingGood: categoryCounts.ping_good || 0,
+            yipeeParrot: categoryCounts.yipee_parrot || 0,
+            nooo: categoryCounts.nooo || 0,
+            eyes: categoryCounts.eyes || 0,
+            skull: categoryCounts.skull || 0,
+            leek: categoryCounts.leek || 0,
+            real: categoryCounts.real || 0,
+            same: categoryCounts.same || 0,
+            updatedAt: new Date(),
+          };
+
           await db.update(messages)
-            .set({
-              upvotes: upvoterIds.size,
-              downvotes: authoritativeDownvotes,
-              updatedAt: new Date(),
-            })
+            .set(updateData)
             .where(eq(messages.messageTs, ts));
         } catch (error) {
             console.error(`Error re-syncing reactions for message ${ts}:`, error);
