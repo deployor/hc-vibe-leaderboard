@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       const downvoteReactions = ["downvote"];
       const yayReactions = ["yay"];
       const sobReactions = ["sob", "heavysob"];
-      const heartReactions = ["sparkling_heart"];
+      const heartReactions = ["sparkling_heart", "heart"];
       const starReactions = ["star"];
       const fireReactions = ["fire"];
 
