@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X, MessageSquare, Users } from "lucide-react";
+import { ArrowBigUp, ArrowBigDown, ArrowRight, LogOut, Calendar, Clock, TrendingUp, Globe, ThumbsUp, ThumbsDown, Loader, Info, X, MessageSquare, Users, User as UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -37,6 +37,42 @@ interface User {
 }
 
 const PAGE_SIZE = 20;
+
+const AvatarImage = ({ src, alt, fallbackInitial }: { src?: string | null; alt: string; fallbackInitial: string }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src) {
+    return (
+      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+        {fallbackInitial}
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-slate-400 ring-2 ring-slate-600/50">
+        <UserIcon size={24} />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={48}
+      height={48}
+      className="rounded-full ring-2 ring-slate-600/50"
+      onError={() => setHasError(true)}
+      unoptimized
+    />
+  );
+};
 
 function getRelativeTime(date: Date): string {
   const now = new Date();
@@ -251,20 +287,12 @@ const UserCard = ({ user, index }: { user: User; index: number }) => {
 
         <div className="flex-grow">
           <div className="flex items-center gap-4 mb-4">
-            <div className="relative">
-              {user.avatarUrl ? (
-                <Image
-                  src={user.avatarUrl}
-                  alt={user.userName}
-                  width={48}
-                  height={48}
-                  className="rounded-full ring-2 ring-slate-600/50"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {user.userName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <div className="relative w-12 h-12">
+              <AvatarImage
+                src={user.avatarUrl}
+                alt={user.userName}
+                fallbackInitial={user.userName.charAt(0).toUpperCase()}
+              />
             </div>
             <div>
               <p className="font-semibold text-white text-lg">{user.userName}</p>
@@ -347,20 +375,12 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
 
         <div className="flex-grow">
           <div className="flex items-center gap-4 mb-4">
-            <div className="relative">
-              {msg.avatarUrl ? (
-                <Image
-                  src={msg.avatarUrl}
-                  alt={msg.userName}
-                  width={48}
-                  height={48}
-                  className="rounded-full ring-2 ring-slate-600/50"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  {msg.userName.charAt(0).toUpperCase()}
-                </div>
-              )}
+            <div className="relative w-12 h-12">
+              <AvatarImage
+                src={msg.avatarUrl}
+                alt={msg.userName}
+                fallbackInitial={msg.userName.charAt(0).toUpperCase()}
+              />
             </div>
             <div>
               <p className="font-semibold text-white text-lg">{msg.userName}</p>
@@ -412,11 +432,6 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
           )}
           
           <div className="relative">
-            {msg.isThreadReply && (
-              <div className="absolute -left-5 top-1 text-blue-400">
-                <ArrowRight size={16} className="rotate-90" />
-              </div>
-            )}
             <p className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base">
               {msg.content}
             </p>
