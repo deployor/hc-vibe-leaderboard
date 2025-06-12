@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
 import { messages, optedOutUsers } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
       const { reaction, item } = event;
 
-      const upvoteReactions = ["upvote"];
+      const upvoteReactions = ["upvote", "this"];
       const downvoteReactions = ["downvote"];
 
       if (
@@ -150,14 +150,19 @@ export async function POST(req: NextRequest) {
           const avatarUrl = userInfo.user?.profile?.image_72;
           const channelName = channelInfo.channel?.name || "unknown-channel";
 
+          // --- Get authoritative reaction counts ---
           const reactionData = await slack.reactions.get({ channel, timestamp: ts });
-          let initialUpvotes = 0;
-          let initialDownvotes = 0;
+          const upvoterIds = new Set<string>();
+          let authoritativeDownvotes = 0;
 
           if (reactionData.ok && reactionData.message?.reactions) {
             for (const reactionItem of reactionData.message.reactions) {
-              if (upvoteReactions.includes(reactionItem.name!)) initialUpvotes = reactionItem.count ?? 0;
-              if (downvoteReactions.includes(reactionItem.name!)) initialDownvotes = reactionItem.count ?? 0;
+              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
+                reactionItem.users.forEach(u => upvoterIds.add(u));
+              }
+              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
+                authoritativeDownvotes = reactionItem.count ?? 0;
+              }
             }
           }
 
@@ -169,8 +174,8 @@ export async function POST(req: NextRequest) {
             userName: userName,
             avatarUrl: avatarUrl,
             content: messageData.text,
-            upvotes: initialUpvotes,
-            downvotes: initialDownvotes,
+            upvotes: upvoterIds.size,
+            downvotes: authoritativeDownvotes,
             threadTs: threadTs || null,
             isThreadReply: isThreadReply || false,
             parentContent: parentContent,
@@ -186,45 +191,33 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        const isUpvote = upvoteReactions.includes(reaction);
-        const isAdd = event.type === "reaction_added";
-        
-        const upvoteChange = isUpvote && isAdd ? 1 : (isUpvote && !isAdd ? -1 : 0);
-        const downvoteChange = !isUpvote && isAdd ? 1 : (!isUpvote && !isAdd ? -1 : 0);
-
-        const updated = await db.update(messages)
-          .set({
-            upvotes: sql`${messages.upvotes} + ${upvoteChange}`,
-            downvotes: sql`${messages.downvotes} + ${downvoteChange}`,
-            totalReactions: sql`${messages.totalReactions} + 1`,
-            updatedAt: new Date(),
-          })
-          .where(eq(messages.messageTs, ts))
-          .returning({ totalReactions: messages.totalReactions });
-        
-        const totalReactions = updated[0]?.totalReactions ?? 0;
-
-        if (totalReactions > 0 && totalReactions % 10 === 0) {
-          console.log(`Performing periodic re-sync for message ${ts} at ${totalReactions} reactions.`);
-          
+        // --- Re-sync reaction counts for every event on an existing message ---
+        console.log(`Re-syncing reactions for existing message ${ts}`);
+        try {
           const reactionData = await slack.reactions.get({ channel, timestamp: ts });
-          let authoritativeUpvotes = 0;
+          const upvoterIds = new Set<string>();
           let authoritativeDownvotes = 0;
 
           if (reactionData.ok && reactionData.message?.reactions) {
             for (const reactionItem of reactionData.message.reactions) {
-              if (upvoteReactions.includes(reactionItem.name!)) authoritativeUpvotes = reactionItem.count ?? 0;
-              if (downvoteReactions.includes(reactionItem.name!)) authoritativeDownvotes = reactionItem.count ?? 0;
+              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
+                reactionItem.users.forEach(u => upvoterIds.add(u));
+              }
+              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
+                authoritativeDownvotes = reactionItem.count ?? 0;
+              }
             }
           }
 
           await db.update(messages)
             .set({
-              upvotes: authoritativeUpvotes,
+              upvotes: upvoterIds.size,
               downvotes: authoritativeDownvotes,
               updatedAt: new Date(),
             })
             .where(eq(messages.messageTs, ts));
+        } catch (error) {
+            console.error(`Error re-syncing reactions for message ${ts}:`, error);
         }
       }
     }
