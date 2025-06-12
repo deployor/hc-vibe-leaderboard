@@ -1,6 +1,10 @@
 import { sealData, unsealData } from "iron-session";
 import { cookies } from "next/headers";
 import { SessionOptions } from "iron-session";
+import { db } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { WebClient } from "@slack/web-api";
 
 export interface SessionData {
   slackUserId: string;
@@ -29,6 +33,29 @@ export async function getSession(): Promise<SessionData | null> {
     const session = await unsealData<SessionData>(cookie, {
       password: sessionOptions.password,
     });
+
+    // Back-fill logic to ensure any user with a valid session is in our DB.
+    const userExists = await db.query.users.findFirst({
+        where: eq(users.id, session.slackUserId),
+    });
+
+    if (!userExists) {
+        console.log(`Back-filling user ${session.slackUserId} into the database.`);
+        const botSlack = new WebClient(process.env.SLACK_BOT_TOKEN);
+        const userInfo = await botSlack.users.info({ user: session.slackUserId });
+
+        if (userInfo.ok && userInfo.user) {
+            const { user } = userInfo;
+            await db.insert(users).values({
+                id: session.slackUserId,
+                teamId: session.teamId,
+                name: user.profile?.display_name || user.name || "Unknown",
+                avatarUrl: user.profile?.image_72,
+                updatedAt: new Date(),
+            }).onConflictDoNothing();
+        }
+    }
+
     return session;
   } catch (error) {
     console.error("Failed to unseal session", error);

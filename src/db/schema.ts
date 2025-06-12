@@ -48,4 +48,13 @@ export const userStats = pgTable("user_stats", {
   givenUpvotes: integer("given_upvotes").default(0).notNull(),
   givenDownvotes: integer("given_downvotes").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(), // Slack User ID
+  teamId: text("team_id"),
+  name: text("name").notNull(),
+  avatarUrl: text("avatar_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }); 

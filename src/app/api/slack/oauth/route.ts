@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { createSession } from "@/lib/session";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -31,10 +33,44 @@ export async function GET(req: NextRequest) {
       );
     }
     
+    const { authed_user, team } = oauthResponse;
+    const slackUserId = authed_user.id!;
+    const teamId = team?.id;
+    const accessToken = oauthResponse.access_token!;
+
+    // We have the user's token, but for consistency and to ensure we have the right scopes,
+    // we'll use the main bot token to fetch user info.
+    const botSlack = new WebClient(process.env.SLACK_BOT_TOKEN);
+    const userInfo = await botSlack.users.info({ user: slackUserId });
+
+    if (userInfo.ok && userInfo.user) {
+      const { user } = userInfo;
+      const userName = user.profile?.display_name || user.name || "Unknown";
+      const avatarUrl = user.profile?.image_72;
+
+      await db.insert(users).values({
+        id: slackUserId,
+        teamId,
+        name: userName,
+        avatarUrl,
+        updatedAt: new Date(),
+      }).onConflictDoUpdate({
+        target: users.id,
+        set: {
+          name: userName,
+          avatarUrl,
+          teamId,
+          updatedAt: new Date(),
+        }
+      });
+    } else {
+      console.error(`Could not fetch info for user ${slackUserId}`, userInfo.error);
+    }
+    
     await createSession({
-      slackUserId: oauthResponse.authed_user.id,
-      teamId: oauthResponse.team?.id ?? "",
-      accessToken: oauthResponse.access_token,
+      slackUserId: slackUserId,
+      teamId: teamId ?? "",
+      accessToken: accessToken,
     });
 
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/leaderboard`);
