@@ -161,6 +161,36 @@ export async function POST(req: NextRequest) {
       const threadTs = item.thread_ts;
       const isThreadReply = threadTs && threadTs !== ts;
 
+      const resyncMessageReactions = async (ts: string, channel: string) => {
+        console.log(`Re-syncing reactions for existing message ${ts}`);
+        try {
+          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
+          const upvoterIds = new Set<string>();
+          let authoritativeDownvotes = 0;
+
+          if (reactionData.ok && reactionData.message?.reactions) {
+            for (const reactionItem of reactionData.message.reactions) {
+              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
+                reactionItem.users.forEach(u => upvoterIds.add(u));
+              }
+              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
+                authoritativeDownvotes = reactionItem.count ?? 0;
+              }
+            }
+          }
+
+          await db.update(messages)
+            .set({
+              upvotes: upvoterIds.size,
+              downvotes: authoritativeDownvotes,
+              updatedAt: new Date(),
+            })
+            .where(eq(messages.messageTs, ts));
+        } catch (error) {
+            console.error(`Error re-syncing reactions for message ${ts}:`, error);
+        }
+      }
+
       const message = await db.query.messages.findFirst({
         where: eq(messages.messageTs, ts),
       });
@@ -201,7 +231,7 @@ export async function POST(req: NextRequest) {
               parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
                         }
             
-            console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
+            // console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
           } else {
             // For regular messages, use conversations.history
             const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
@@ -230,22 +260,6 @@ export async function POST(req: NextRequest) {
           const avatarUrl = userInfo.user?.profile?.image_72;
           const channelName = channelInfo.channel?.name || "unknown-channel";
 
-          // --- Get authoritative reaction counts ---
-          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
-          const upvoterIds = new Set<string>();
-          let authoritativeDownvotes = 0;
-
-          if (reactionData.ok && reactionData.message?.reactions) {
-            for (const reactionItem of reactionData.message.reactions) {
-              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
-                reactionItem.users.forEach(u => upvoterIds.add(u));
-              }
-              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
-                authoritativeDownvotes = reactionItem.count ?? 0;
-              }
-            }
-          }
-
           await db.insert(messages).values({
             messageTs: ts,
             channelId: channel,
@@ -254,8 +268,8 @@ export async function POST(req: NextRequest) {
             userName: userName,
             avatarUrl: avatarUrl,
             content: messageData.text,
-            upvotes: upvoterIds.size,
-            downvotes: authoritativeDownvotes,
+            upvotes: 0, // Start with 0, will be synced immediately after
+            downvotes: 0, // Start with 0, will be synced immediately after
             threadTs: threadTs || null,
             isThreadReply: isThreadReply || false,
             parentContent: parentContent,
@@ -263,42 +277,24 @@ export async function POST(req: NextRequest) {
             updatedAt: new Date(),
           });
 
+          // After successful insert, perform the first sync.
+          await resyncMessageReactions(ts, channel);
+
         } catch (error) {
-          if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
-            console.log("Race condition handled: Message was created by a concurrent process.");
+          const isDuplicateKeyError = error && typeof error === 'object' && 'cause' in error && 
+                                      typeof error.cause === 'object' && error.cause && 'code' in error.cause && 
+                                      error.cause.code === '23505';
+
+          if (isDuplicateKeyError) {
+            console.log(`Race condition handled for message ${ts}. Re-syncing reactions now.`);
+            await resyncMessageReactions(ts, channel);
           } else {
             console.error("An unhandled error occurred during message creation:", error);
           }
         }
       } else {
         // --- Re-sync reaction counts for every event on an existing message ---
-        console.log(`Re-syncing reactions for existing message ${ts}`);
-        try {
-          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
-          const upvoterIds = new Set<string>();
-          let authoritativeDownvotes = 0;
-
-          if (reactionData.ok && reactionData.message?.reactions) {
-            for (const reactionItem of reactionData.message.reactions) {
-              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
-                reactionItem.users.forEach(u => upvoterIds.add(u));
-              }
-              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
-                authoritativeDownvotes = reactionItem.count ?? 0;
-              }
-            }
-          }
-
-          await db.update(messages)
-            .set({
-              upvotes: upvoterIds.size,
-              downvotes: authoritativeDownvotes,
-              updatedAt: new Date(),
-            })
-            .where(eq(messages.messageTs, ts));
-        } catch (error) {
-            console.error(`Error re-syncing reactions for message ${ts}:`, error);
-        }
+        await resyncMessageReactions(ts, channel);
       }
     }
   }
