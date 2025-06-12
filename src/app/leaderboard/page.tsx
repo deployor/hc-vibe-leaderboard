@@ -398,24 +398,29 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
           
           {/* Thread context */}
           {msg.isThreadReply && msg.parentContent && msg.parentUserName && (
-            <div className="mb-4 p-3 bg-slate-700/30 border-l-4 border-blue-500/50 rounded-r-lg">
+            <div className="mb-4 p-4 bg-slate-800/50 border-l-4 border-blue-500 rounded-r-lg">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                <span className="text-xs text-blue-400 font-medium uppercase tracking-wide">
-                  Reply to {msg.parentUserName}
+                <MessageSquare size={14} className="text-blue-400/80"/> 
+                <span className="text-xs text-blue-400/80 font-semibold uppercase tracking-wider">
+                  In reply to {msg.parentUserName}
                 </span>
               </div>
               <p className="text-slate-400 text-sm italic line-clamp-2">
-                {msg.parentContent.length > 100 
-                  ? `${msg.parentContent.substring(0, 100)}...` 
-                  : msg.parentContent}
+                &ldquo;{msg.parentContent}&rdquo;
               </p>
             </div>
           )}
           
-          <p className="text-slate-300 whitespace-pre-wrap break-words leading-relaxed text-base">
-            {msg.content}
-          </p>
+          <div className="relative">
+            {msg.isThreadReply && (
+              <div className="absolute -left-5 top-1 text-blue-400">
+                <ArrowRight size={16} className="rotate-90" />
+              </div>
+            )}
+            <p className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base">
+              {msg.content}
+            </p>
+          </div>
         </div>
         
         <a
