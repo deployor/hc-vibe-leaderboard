@@ -52,6 +52,15 @@ export const userStats = pgTable("user_stats", {
   givenHeart: integer("given_heart").default(0).notNull(),
   givenStar: integer("given_star").default(0).notNull(),
   givenFire: integer("given_fire").default(0).notNull(),
+  // New reaction tracking fields
+  givenLeek: integer("given_leek").default(0).notNull(),
+  givenReal: integer("given_real").default(0).notNull(),
+  givenSame: integer("given_same").default(0).notNull(),
+  givenSkull: integer("given_skull").default(0).notNull(),
+  givenEyes: integer("given_eyes").default(0).notNull(),
+  givenYipee: integer("given_yipee").default(0).notNull(),
+  givenPingGood: integer("given_ping_good").default(0).notNull(),
+  givenPingBad: integer("given_ping_bad").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

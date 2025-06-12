@@ -69,10 +69,18 @@ export async function POST(req: NextRequest) {
       const upvoteReactions = ["upvote", "this"];
       const downvoteReactions = ["downvote"];
       const yayReactions = ["yay"];
-      const sobReactions = ["sob", "heavysob", "pf"];
-      const heartReactions = ["sparkling_heart", "heart"];
+      const sobReactions = ["sob", "heavysob", "pf", "noooo", "noo", "noooovanish"];
+      const heartReactions = ["ohneheart", "ohnelove", "blahaj-heart", "heart", "sparkling_heart"];
       const starReactions = ["star"];
       const fireReactions = ["fire"];
+      const leekReactions = ["leeks", "leek"];
+      const realReactions = ["real"];
+      const sameReactions = ["same"];
+      const skullReactions = ["skulk", "skull", "skull-ios"];
+      const eyesReactions = ["earthquakyeyes", "eyes_wtf", "eyes", "Eyes"];
+      const yipeeReactions = ["ultrafastparrot", "yipee"];
+      const pingGoodReactions = ["happy_ping_sock"];
+      const pingBadReactions = ["mad_ping_sock"];
 
       const allTrackedReactions = [
         ...upvoteReactions,
@@ -82,6 +90,14 @@ export async function POST(req: NextRequest) {
         ...heartReactions,
         ...starReactions,
         ...fireReactions,
+        ...leekReactions,
+        ...realReactions,
+        ...sameReactions,
+        ...skullReactions,
+        ...eyesReactions,
+        ...yipeeReactions,
+        ...pingGoodReactions,
+        ...pingBadReactions,
       ];
 
       if (!allTrackedReactions.includes(reaction)) {
@@ -100,6 +116,14 @@ export async function POST(req: NextRequest) {
         let givenHeartChange = 0;
         let givenStarChange = 0;
         let givenFireChange = 0;
+        let givenLeekChange = 0;
+        let givenRealChange = 0;
+        let givenSameChange = 0;
+        let givenSkullChange = 0;
+        let givenEyesChange = 0;
+        let givenYipeeChange = 0;
+        let givenPingGoodChange = 0;
+        let givenPingBadChange = 0;
 
         if (upvoteReactions.includes(reaction)) givenUpvoteChange = change;
         else if (downvoteReactions.includes(reaction)) givenDownvoteChange = change;
@@ -108,6 +132,14 @@ export async function POST(req: NextRequest) {
         else if (heartReactions.includes(reaction)) givenHeartChange = change;
         else if (starReactions.includes(reaction)) givenStarChange = change;
         else if (fireReactions.includes(reaction)) givenFireChange = change;
+        else if (leekReactions.includes(reaction)) givenLeekChange = change;
+        else if (realReactions.includes(reaction)) givenRealChange = change;
+        else if (sameReactions.includes(reaction)) givenSameChange = change;
+        else if (skullReactions.includes(reaction)) givenSkullChange = change;
+        else if (eyesReactions.includes(reaction)) givenEyesChange = change;
+        else if (yipeeReactions.includes(reaction)) givenYipeeChange = change;
+        else if (pingGoodReactions.includes(reaction)) givenPingGoodChange = change;
+        else if (pingBadReactions.includes(reaction)) givenPingBadChange = change;
 
         if (
           givenUpvoteChange ||
@@ -116,7 +148,15 @@ export async function POST(req: NextRequest) {
           givenSobChange ||
           givenHeartChange ||
           givenStarChange ||
-          givenFireChange
+          givenFireChange ||
+          givenLeekChange ||
+          givenRealChange ||
+          givenSameChange ||
+          givenSkullChange ||
+          givenEyesChange ||
+          givenYipeeChange ||
+          givenPingGoodChange ||
+          givenPingBadChange
         ) {
             const reactingUserStats = await db.query.userStats.findFirst({
                 where: eq(userStats.userId, reactingUserId),
@@ -132,6 +172,14 @@ export async function POST(req: NextRequest) {
                         givenHeart: sql`${userStats.givenHeart} + ${givenHeartChange}`,
                         givenStar: sql`${userStats.givenStar} + ${givenStarChange}`,
                         givenFire: sql`${userStats.givenFire} + ${givenFireChange}`,
+                        givenLeek: sql`${userStats.givenLeek} + ${givenLeekChange}`,
+                        givenReal: sql`${userStats.givenReal} + ${givenRealChange}`,
+                        givenSame: sql`${userStats.givenSame} + ${givenSameChange}`,
+                        givenSkull: sql`${userStats.givenSkull} + ${givenSkullChange}`,
+                        givenEyes: sql`${userStats.givenEyes} + ${givenEyesChange}`,
+                        givenYipee: sql`${userStats.givenYipee} + ${givenYipeeChange}`,
+                        givenPingGood: sql`${userStats.givenPingGood} + ${givenPingGoodChange}`,
+                        givenPingBad: sql`${userStats.givenPingBad} + ${givenPingBadChange}`,
                         updatedAt: new Date(),
                     })
                     .where(eq(userStats.userId, reactingUserId));
@@ -149,6 +197,14 @@ export async function POST(req: NextRequest) {
                         givenHeart: givenHeartChange > 0 ? 1 : 0,
                         givenStar: givenStarChange > 0 ? 1 : 0,
                         givenFire: givenFireChange > 0 ? 1 : 0,
+                        givenLeek: givenLeekChange > 0 ? 1 : 0,
+                        givenReal: givenRealChange > 0 ? 1 : 0,
+                        givenSame: givenSameChange > 0 ? 1 : 0,
+                        givenSkull: givenSkullChange > 0 ? 1 : 0,
+                        givenEyes: givenEyesChange > 0 ? 1 : 0,
+                        givenYipee: givenYipeeChange > 0 ? 1 : 0,
+                        givenPingGood: givenPingGoodChange > 0 ? 1 : 0,
+                        givenPingBad: givenPingBadChange > 0 ? 1 : 0,
                         updatedAt: new Date(),
                     });
                 }
