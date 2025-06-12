@@ -1,9 +1,23 @@
-import { WebClient, View } from "@slack/web-api";
+import { WebClient, View, UsersInfoResponse } from "@slack/web-api";
 import { db } from "@/db";
 import { optedOutUsers } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { KnownBlock, ImageElement } from "@slack/types";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const DEPLOYOR_USER_ID = "U078PH0GBEH";
+
+async function fetchDeployorImage(): Promise<string | null> {
+  try {
+    const res = (await slack.users.info({ user: DEPLOYOR_USER_ID })) as UsersInfoResponse;
+    if (res.ok && res.user && res.user.profile?.image_72) {
+      return res.user.profile.image_72 as string;
+    }
+  } catch (error) {
+    console.error("Failed to fetch deployor profile image:", error);
+  }
+  return null;
+}
 
 async function buildHomeView(userId: string): Promise<View> {
   const isOptedOut = await db.query.optedOutUsers.findFirst({
@@ -11,13 +25,13 @@ async function buildHomeView(userId: string): Promise<View> {
   });
 
   const optOutStatusText = isOptedOut
-    ? "🔴 You are currently *opted out* of Vibe Check. Your messages will not appear on the leaderboard."
-    : "✅ You are currently *opted in* to Vibe Check. Your messages can appear on the leaderboard.";
+    ? "🔴 You are currently *opted out* of VibeCCheck. Your messages will not appear on the leaderboard."
+    : "✅ You are currently *opted in* to VibeCheck. Your messages can appear on the leaderboard.";
 
   const optOutButtonText = isOptedOut ? "Opt Back In" : "Opt Out";
   const optOutButtonStyle = isOptedOut ? "primary" : "danger";
 
-  const blocks = [
+  const blocks: KnownBlock[] = [
     {
       type: "header",
       text: {
@@ -30,7 +44,7 @@ async function buildHomeView(userId: string): Promise<View> {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "Welcome to your personal Vibe Check dashboard! Here you can manage your participation.",
+        text: "Welcome to your Vibe Check dashboard! Here you can manage your participation.",
       },
     },
     {
@@ -77,12 +91,36 @@ async function buildHomeView(userId: string): Promise<View> {
             text: "🚀 View Leaderboard",
             emoji: true,
           },
-          url: "https://vibe.hackclub.com/leaderboard",
+          url: "https://vibe.deployor.dev/leaderboard",
           action_id: "link_to_leaderboard",
         },
       ],
     },
   ];
+
+  // Add footer with profile picture
+  const deployorImage = await fetchDeployorImage();
+  blocks.push({
+    type: "divider",
+  } as KnownBlock);
+  blocks.push({
+    type: "context",
+    elements: [
+      ...(deployorImage
+        ? [
+            {
+              type: "image",
+              image_url: deployorImage,
+              alt_text: "deployor avatar",
+            } as ImageElement,
+          ]
+        : []),
+      {
+        type: "mrkdwn",
+        text: "– made by *deployor*",
+      },
+    ],
+  } as KnownBlock);
 
   return {
     type: "home",
