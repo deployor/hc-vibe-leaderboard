@@ -4,103 +4,9 @@ import { db } from "@/db";
 import { messages, optedOutUsers, userStats } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
+import { publishHomeView } from "@/lib/app-home";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
-
-async function publishAppHome(userId: string) {
-  const optedOutUser = await db.query.optedOutUsers.findFirst({
-    where: eq(optedOutUsers.slackUserId, userId),
-  });
-  const isOptedOut = !!optedOutUser;
-
-  const statusText = isOptedOut
-    ? "You have opted out. Your messages will not be tracked on the Vibe Check leaderboard."
-    : "You are opted in! Your messages will be tracked on the Vibe Check leaderboard.";
-  const buttonText = isOptedOut ? "Opt In" : "Opt Out";
-  const buttonValue = isOptedOut ? "is_opted_out" : "is_opted_in";
-
-  try {
-    await slack.views.publish({
-      user_id: userId,
-      view: {
-        type: "home",
-        blocks: [
-          {
-            type: "header",
-            text: {
-              type: "plain_text",
-              text: "Vibe Check Home",
-              emoji: true,
-            },
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "Welcome! Here you can manage your settings for the Vibe Check leaderboard.",
-            },
-          },
-          {
-            type: "divider",
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `*Your Status:* ${statusText}`,
-            },
-            accessory: {
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: buttonText,
-                emoji: true,
-              },
-              value: buttonValue,
-              action_id: "user_opt_toggle",
-            },
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: "*Channel Management*",
-            },
-          },
-          {
-            type: "context",
-            elements: [
-              {
-                type: "mrkdwn",
-                text: "To remove (or re-add) Vibe Check from a channel, use the `/opt-vibecheck-channel` command within that channel. This can only be done by the channel creator or a workspace admin.",
-              },
-            ],
-          },
-          {
-            type: "divider",
-          },
-          {
-            type: "actions",
-            elements: [
-              {
-                type: "button",
-                text: {
-                  type: "plain_text",
-                  text: "View Leaderboard",
-                  emoji: true,
-                },
-                url: "https://vibe.hackclub.com",
-                action_id: "view_leaderboard_button",
-              },
-            ],
-          },
-        ],
-      },
-    });
-  } catch (error) {
-    console.error(`Error publishing app home for user ${userId}:`, error);
-  }
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -118,34 +24,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  // Handle interactive components (e.g., button clicks) from application/x-www-form-urlencoded
-  const contentType = req.headers.get("content-type");
-  if (contentType === "application/x-www-form-urlencoded") {
-    const formData = new URLSearchParams(body);
-    const payload = JSON.parse(formData.get("payload") as string);
-
-    if (
-      payload.type === "block_actions" &&
-      payload.actions?.[0]?.action_id === "user_opt_toggle"
-    ) {
-      const userId = payload.user.id;
-      const isCurrentlyOptedOut = payload.actions[0].value === "is_opted_out";
-
-      if (isCurrentlyOptedOut) {
-        // User was opted out, and clicked 'Opt In'.
-        await db
-          .delete(optedOutUsers)
-          .where(eq(optedOutUsers.slackUserId, userId));
-      } else {
-        // User was opted in, and clicked 'Opt Out'.
-        await db.insert(optedOutUsers).values({ slackUserId: userId });
-      }
-      await publishAppHome(userId); // Re-publish the home tab to show the new status
-    }
-    // Acknowledge the interaction
-    return NextResponse.json({ ok: true });
-  }
-
   const data = JSON.parse(body);
 
   if (data.type === "url_verification") {
@@ -155,10 +33,12 @@ export async function POST(req: NextRequest) {
   if (data.type === "event_callback") {
     const event = data.event;
 
-    // --- Handle App Home ---
+    // --- Handle app home opened ---
     if (event.type === "app_home_opened") {
-      await publishAppHome(event.user);
-      return NextResponse.json({ ok: true });
+      // We don't want to block the main thread.
+      (async () => {
+        await publishHomeView(event.user);
+      })();
     }
 
     // --- Handle new channel creation ---
@@ -177,7 +57,7 @@ export async function POST(req: NextRequest) {
           await slack.conversations.join({ channel: channel.id });
           console.log(`Successfully joined channel ${channel.id}`);
 
-          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of upvotes using :upvote: and :downvote: on messages. I'll be tallying them up on the leaderboard. You can check it out at https://vibe.hackclub.com.`;
+          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of upvote using :upvote: and :downvote: on messages. I'll be tallying them up on the leaderboard. You can check it out at https://vibe.deployor.dev.`;
 
           await slack.chat.postEphemeral({
             channel: channel.id,
