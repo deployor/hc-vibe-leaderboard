@@ -1,0 +1,20 @@
+ALTER TABLE "messages" ADD COLUMN "hearts" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "ping_bad" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "ping_good" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "yipee_parrot" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "nooo" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "eyes" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "skull" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "leek" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "real" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "messages" ADD COLUMN "same" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_hearts" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_ping_bad" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_ping_good" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_yipee_parrot" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_nooo" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_eyes" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_skull" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_leek" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_real" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_stats" ADD COLUMN "given_same" integer DEFAULT 0 NOT NULL;

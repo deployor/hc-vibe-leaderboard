@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1749656295369,
+      "tag": "0000_sparkling_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749685142984,
+      "tag": "0001_fast_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749739473366,
+      "tag": "0002_unknown_sister_grimm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749748264669,
+      "tag": "0003_rich_legion",
+      "breakpoints": true
+    }
+  ]
+}

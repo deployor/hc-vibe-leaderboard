@@ -233,13 +233,52 @@ export async function POST(req: NextRequest) {
           const upvoterIds = new Set<string>();
           let authoritativeDownvotes = 0;
 
+          let yayCount = 0;
+          let sobCount = 0;
+          let heartCount = 0;
+          let starCount = 0;
+          let fireCount = 0;
+          let leekCount = 0;
+          let realCount = 0;
+          let sameCount = 0;
+          let skullCount = 0;
+          let eyesCount = 0;
+          let yipeeCount = 0;
+          let pingGoodCount = 0;
+          let pingBadCount = 0;
+
           if (reactionData.ok && reactionData.message?.reactions) {
             for (const reactionItem of reactionData.message.reactions) {
               if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
                 reactionItem.users.forEach(u => upvoterIds.add(u));
-              }
-              if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
+              } else if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
                 authoritativeDownvotes = reactionItem.count ?? 0;
+              } else if (reactionItem.name && yayReactions.includes(reactionItem.name)) {
+                yayCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && sobReactions.includes(reactionItem.name)) {
+                sobCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && heartReactions.includes(reactionItem.name)) {
+                heartCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && starReactions.includes(reactionItem.name)) {
+                starCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && fireReactions.includes(reactionItem.name)) {
+                fireCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && leekReactions.includes(reactionItem.name)) {
+                leekCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && realReactions.includes(reactionItem.name)) {
+                realCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && sameReactions.includes(reactionItem.name)) {
+                sameCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && skullReactions.includes(reactionItem.name)) {
+                skullCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && eyesReactions.includes(reactionItem.name)) {
+                eyesCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && yipeeReactions.includes(reactionItem.name)) {
+                yipeeCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && pingGoodReactions.includes(reactionItem.name)) {
+                pingGoodCount = reactionItem.count ?? 0;
+              } else if (reactionItem.name && pingBadReactions.includes(reactionItem.name)) {
+                pingBadCount = reactionItem.count ?? 0;
               }
             }
           }
@@ -248,6 +287,19 @@ export async function POST(req: NextRequest) {
             .set({
               upvotes: upvoterIds.size,
               downvotes: authoritativeDownvotes,
+              yay: yayCount,
+              sob: sobCount,
+              heart: heartCount,
+              star: starCount,
+              fire: fireCount,
+              leek: leekCount,
+              real: realCount,
+              same: sameCount,
+              skull: skullCount,
+              eyes: eyesCount,
+              yipee: yipeeCount,
+              pingGood: pingGoodCount,
+              pingBad: pingBadCount,
               updatedAt: new Date(),
             })
             .where(eq(messages.messageTs, ts));
@@ -358,8 +410,37 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        // --- Re-sync reaction counts for every event on an existing message ---
+        // --- Re-sync reaction counts on the message itself ---
         await resyncMessageReactions(ts, channel);
+      }
+
+      // --- Update reaction counts on the message itself ---
+      try {
+        const updatePayload: Record<string, unknown> = {};
+        const msgChange = event.type === "reaction_added" ? 1 : -1;
+
+        if (upvoteReactions.includes(reaction)) updatePayload.upvotes = sql`${messages.upvotes} + ${msgChange}`;
+        else if (downvoteReactions.includes(reaction)) updatePayload.downvotes = sql`${messages.downvotes} + ${msgChange}`;
+        else if (yayReactions.includes(reaction)) updatePayload.yay = sql`${messages.yay} + ${msgChange}`;
+        else if (sobReactions.includes(reaction)) updatePayload.sob = sql`${messages.sob} + ${msgChange}`;
+        else if (heartReactions.includes(reaction)) updatePayload.heart = sql`${messages.heart} + ${msgChange}`;
+        else if (starReactions.includes(reaction)) updatePayload.star = sql`${messages.star} + ${msgChange}`;
+        else if (fireReactions.includes(reaction)) updatePayload.fire = sql`${messages.fire} + ${msgChange}`;
+        else if (leekReactions.includes(reaction)) updatePayload.leek = sql`${messages.leek} + ${msgChange}`;
+        else if (realReactions.includes(reaction)) updatePayload.real = sql`${messages.real} + ${msgChange}`;
+        else if (sameReactions.includes(reaction)) updatePayload.same = sql`${messages.same} + ${msgChange}`;
+        else if (skullReactions.includes(reaction)) updatePayload.skull = sql`${messages.skull} + ${msgChange}`;
+        else if (eyesReactions.includes(reaction)) updatePayload.eyes = sql`${messages.eyes} + ${msgChange}`;
+        else if (yipeeReactions.includes(reaction)) updatePayload.yipee = sql`${messages.yipee} + ${msgChange}`;
+        else if (pingGoodReactions.includes(reaction)) updatePayload.pingGood = sql`${messages.pingGood} + ${msgChange}`;
+        else if (pingBadReactions.includes(reaction)) updatePayload.pingBad = sql`${messages.pingBad} + ${msgChange}`;
+
+        if (Object.keys(updatePayload).length > 0) {
+          updatePayload.updatedAt = new Date();
+          await db.update(messages).set(updatePayload).where(eq(messages.messageTs, item.ts));
+        }
+      } catch (error) {
+        console.error("Failed to update message reaction counts", error);
       }
     }
   }

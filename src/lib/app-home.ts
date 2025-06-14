@@ -36,7 +36,7 @@ async function buildHomeView(userId: string): Promise<View> {
       type: "header",
       text: {
         type: "plain_text",
-        text: "Vibe Check HQ",
+        text: "VibeCheck HQ",
         emoji: true,
       },
     },

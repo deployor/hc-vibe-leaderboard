@@ -21,6 +21,19 @@ export const messages = pgTable(
     content: text("content").notNull(),
     upvotes: integer("upvotes").default(0).notNull(),
     downvotes: integer("downvotes").default(0).notNull(),
+    yay: integer("yay").default(0).notNull(),
+    sob: integer("sob").default(0).notNull(),
+    heart: integer("heart").default(0).notNull(),
+    star: integer("star").default(0).notNull(),
+    fire: integer("fire").default(0).notNull(),
+    leek: integer("leek").default(0).notNull(),
+    real: integer("real").default(0).notNull(),
+    same: integer("same").default(0).notNull(),
+    skull: integer("skull").default(0).notNull(),
+    eyes: integer("eyes").default(0).notNull(),
+    yipee: integer("yipee").default(0).notNull(),
+    pingGood: integer("ping_good").default(0).notNull(),
+    pingBad: integer("ping_bad").default(0).notNull(),
     totalReactions: integer("total_reactions").default(0).notNull(),
     // Thread support fields
     threadTs: text("thread_ts"), // null for regular messages, parent message timestamp for threaded messages
@@ -52,7 +65,6 @@ export const userStats = pgTable("user_stats", {
   givenHeart: integer("given_heart").default(0).notNull(),
   givenStar: integer("given_star").default(0).notNull(),
   givenFire: integer("given_fire").default(0).notNull(),
-  // New reaction tracking fields
   givenLeek: integer("given_leek").default(0).notNull(),
   givenReal: integer("given_real").default(0).notNull(),
   givenSame: integer("given_same").default(0).notNull(),
