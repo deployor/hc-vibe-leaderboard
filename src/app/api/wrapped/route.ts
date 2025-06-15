@@ -6,6 +6,22 @@ import { getSession } from "@/lib/session";
 
 interface WrappedResponse {
   month: string; // YYYY-MM
+  totalReactions?: number;
+  reactionBreakdown?: {
+    yay: number;
+    sob: number;
+    heart: number;
+    star: number;
+    fire: number;
+    leek: number;
+    real: number;
+    same: number;
+    skull: number;
+    eyes: number;
+    yipee: number;
+    pingGood: number;
+    pingBad: number;
+  };
   topUpvotedMessage?: {
     id: number;
     userName: string;
@@ -84,6 +100,48 @@ export async function GET(req: NextRequest) {
   };
 
   try {
+    // Calculate total reactions and breakdown
+    const reactionBreakdownResult = await db
+      .select({
+        yay: sql<number>`SUM(${messages.yay})`.as("yay"),
+        sob: sql<number>`SUM(${messages.sob})`.as("sob"),
+        heart: sql<number>`SUM(${messages.heart})`.as("heart"),
+        star: sql<number>`SUM(${messages.star})`.as("star"),
+        fire: sql<number>`SUM(${messages.fire})`.as("fire"),
+        leek: sql<number>`SUM(${messages.leek})`.as("leek"),
+        real: sql<number>`SUM(${messages.real})`.as("real"),
+        same: sql<number>`SUM(${messages.same})`.as("same"),
+        skull: sql<number>`SUM(${messages.skull})`.as("skull"),
+        eyes: sql<number>`SUM(${messages.eyes})`.as("eyes"),
+        yipee: sql<number>`SUM(${messages.yipee})`.as("yipee"),
+        pingGood: sql<number>`SUM(${messages.pingGood})`.as("pingGood"),
+        pingBad: sql<number>`SUM(${messages.pingBad})`.as("pingBad"),
+      })
+      .from(messages)
+      .where(and(gt(messages.createdAt, startDate), lt(messages.createdAt, endDate)))
+      .execute();
+
+    const reactionBreakdown = reactionBreakdownResult[0] || {};
+
+    response.reactionBreakdown = {
+      yay: Number(reactionBreakdown.yay) || 0,
+      sob: Number(reactionBreakdown.sob) || 0,
+      heart: Number(reactionBreakdown.heart) || 0,
+      star: Number(reactionBreakdown.star) || 0,
+      fire: Number(reactionBreakdown.fire) || 0,
+      leek: Number(reactionBreakdown.leek) || 0,
+      real: Number(reactionBreakdown.real) || 0,
+      same: Number(reactionBreakdown.same) || 0,
+      skull: Number(reactionBreakdown.skull) || 0,
+      eyes: Number(reactionBreakdown.eyes) || 0,
+      yipee: Number(reactionBreakdown.yipee) || 0,
+      pingGood: Number(reactionBreakdown.pingGood) || 0,
+      pingBad: Number(reactionBreakdown.pingBad) || 0,
+    };
+
+    // Calculate total reactions
+    response.totalReactions = Object.values(response.reactionBreakdown).reduce((a, b) => a + b, 0);
+
     // Top upvoted message in month
     const topMessage = await db
       .select()

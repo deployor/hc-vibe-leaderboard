@@ -22,6 +22,22 @@ import type { Variants } from "framer-motion";
 
 interface WrappedData {
   month: string;
+  totalReactions?: number;
+  reactionBreakdown?: {
+    yay: number;
+    sob: number;
+    heart: number;
+    star: number;
+    fire: number;
+    leek: number;
+    real: number;
+    same: number;
+    skull: number;
+    eyes: number;
+    yipee: number;
+    pingGood: number;
+    pingBad: number;
+  };
   topUpvotedMessage?: {
     id: number;
     userName: string;
@@ -276,19 +292,29 @@ export default function WrappedPage() {
   const [data, setData] = useState<WrappedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
-  const TOTAL_SLIDES = 14;
+  const TOTAL_SLIDES = 18;
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/wrapped");
       if (!res.ok) {
-        throw new Error("Failed to fetch wrapped data");
+        throw new Error(`Failed to fetch wrapped data: ${res.status} ${res.statusText}`);
       }
       const json: WrappedData = await res.json();
       setData(json);
     } catch (error) {
-      console.error(error);
+      console.error("Wrapped data fetch error:", error);
+      // Provide a more informative error state
+      setData({
+        month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+        totalReactions: 0,
+        reactionBreakdown: {
+          yay: 0, sob: 0, heart: 0, star: 0, fire: 0, 
+          leek: 0, real: 0, same: 0, skull: 0, 
+          eyes: 0, yipee: 0, pingGood: 0, pingBad: 0
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -308,6 +334,9 @@ export default function WrappedPage() {
 
   // Keyboard navigation
   useEffect(() => {
+    // Prevent WebSocket connections in production
+    if (process.env.NODE_ENV === 'production') return;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") {
         nextSlide();
@@ -341,7 +370,131 @@ export default function WrappedPage() {
   }
 
   const slides = [
-    // 0 Intro slide
+    // 0 New Slide: Secret Reactions Suspense
+    (
+      <motion.div key="secret-reactions-suspense" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <TypewriterText
+          text="I have something to tell you... I&apos;ve been keeping a secret from you..."
+          className="text-3xl md:text-4xl text-slate-300 font-medium"
+        />
+        <PulsingDots className="bg-purple-400" />
+      </motion.div>
+    ),
+    // 1 New Slide: Reactions Tracking Reveal
+    (
+      <motion.div key="reactions-tracking" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <TypewriterText
+          text="I&apos;ve been tracking... A LOT of other reactions!"
+          className="text-3xl md:text-4xl text-slate-300 font-medium"
+        />
+        <PulsingDots className="bg-green-400" />
+      </motion.div>
+    ),
+    // 2 New Slide: Total Reactions Count
+    (
+      <div key="total-reactions" className="flex items-center justify-center h-full w-full p-4">
+        <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
+          <motion.div variants={popInBig}>
+            <motion.div 
+              className="text-8xl font-black bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 150, damping: 10 }}
+            >
+              <CountUp 
+                value={data.totalReactions || 0} 
+                duration={7} 
+                className="font-black bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent"
+              />
+            </motion.div>
+          </motion.div>
+          <motion.h2 variants={slideInFromBottom} className="text-4xl md:text-5xl font-bold mb-6 mt-4">Reactions Tracked</motion.h2>
+          <motion.p variants={contentFadeIn} className="text-slate-300 text-lg max-w-xl text-center">
+            Wow! That&apos;s a lot of vibes captured this month! 🎉
+          </motion.p>
+          <ConfettiBurst trigger={true} />
+        </motion.div>
+      </div>
+    ),
+    // 3 New Slide: Reactions Breakdown Intro
+    (
+      <motion.div key="reactions-breakdown-intro" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
+        <TypewriterText
+          text="And here&apos;s a breakdown of all the reactions I tracked!"
+          className="text-3xl md:text-4xl text-slate-300 font-medium"
+        />
+        <div className="mt-8 flex gap-4 text-6xl">
+          {["😂", "😭", "❤️", "⭐", "🔥", "🥬", "💯", "🫂", "💀", "👀", "🎉", "📣"].map((emoji) => (
+            <motion.span 
+              key={emoji} 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ 
+                scale: 1, 
+                opacity: 1
+              }}
+              transition={{ 
+                type: "spring", 
+                stiffness: 300, 
+                damping: 10 
+              }}
+            >
+              {emoji}
+            </motion.span>
+          ))}
+        </div>
+      </motion.div>
+    ),
+    // 4 New Slide: Reactions Breakdown
+    (
+      <div key="reactions-breakdown" className="flex items-center justify-center h-full w-full p-4">
+        <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
+          <motion.h2 variants={slideInFromTop} className="text-4xl md:text-5xl font-bold mb-8">Reaction Breakdown</motion.h2>
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-6 w-full">
+            {data.reactionBreakdown ? Object.entries(data.reactionBreakdown).map(([reaction]) => {
+              const reactionCount = (data.reactionBreakdown as Record<string, number>)[reaction] || 0;
+              return (
+                <motion.div 
+                  key={reaction} 
+                  variants={popInBig} 
+                  className="flex flex-col items-center justify-center bg-slate-900/50 p-4 rounded-xl border border-slate-700/50"
+                >
+                  <div className="text-4xl mb-2">
+                    {
+                      {
+                        yay: "🎉",
+                        sob: "😭",
+                        heart: "❤️",
+                        star: "⭐",
+                        fire: "🔥",
+                        leek: "🥬",
+                        real: "💯",
+                        same: "🫂",
+                        skull: "💀",
+                        eyes: "👀",
+                        yipee: "🤪",
+                        pingGood: "👍",
+                        pingBad: "👎"
+                      }[reaction]
+                    }
+                  </div>
+                  <div className="text-2xl font-bold text-blue-400">
+                    <CountUp value={reactionCount} />
+                  </div>
+                  <div className="text-sm text-slate-400 uppercase tracking-wider mt-1">
+                    {reaction}
+                  </div>
+                </motion.div>
+              );
+            }) : (
+              <motion.p variants={contentFadeIn} className="text-slate-400 text-lg col-span-full text-center">
+                No reaction data available this month.
+              </motion.p>
+            )}
+          </div>
+        </motion.div>
+      </div>
+    ),
+    // 5 Intro slide
     (
       <div key="intro" className="relative flex flex-col items-center justify-center h-full text-center px-6">
         <motion.h1
@@ -360,17 +513,17 @@ export default function WrappedPage() {
         </motion.p>
       </div>
     ),
-    // 1 Suspense before message
+    // 6 Suspense before message
     (
       <motion.div key="suspense-message" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
-          text="Let's start with the message that stole everyone's hearts…"
+          text="Let&apos;s start with the message that stole everyone&apos;s hearts…"
           className="text-3xl md:text-4xl text-slate-300 font-medium"
         />
         <PulsingDots className="bg-blue-400" />
       </motion.div>
     ),
-    // 2 Most loved message
+    // 7 Most loved message
     (
         <div key="top-message" className="flex items-center justify-center h-full w-full p-4">
             <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -381,7 +534,7 @@ export default function WrappedPage() {
                 {data.topUpvotedMessage ? (
                 <>
                     <motion.p variants={contentFadeIn} className="text-slate-300 mb-8 max-w-2xl whitespace-pre-wrap leading-relaxed text-lg">
-                    “{data.topUpvotedMessage.content}”
+                    &quot;{data.topUpvotedMessage.content}&quot;
                     </motion.p>
                     <motion.div variants={slideInFromBottom} className="flex items-center gap-4">
                     <AvatarImage
@@ -406,7 +559,7 @@ export default function WrappedPage() {
             </motion.div>
         </div>
     ),
-    // 3 Suspense before star message
+    // 8 Suspense before star message
     (
       <motion.div key="suspense-star" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -416,11 +569,11 @@ export default function WrappedPage() {
         <PulsingDots className="bg-yellow-400" />
       </motion.div>
     ),
-    // 4 Top starred message reveal
+    // 9 Top starred message reveal
     (
       <div key="star-message" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
-          <ConfettiBurst trigger={slide === 4} />
+          <ConfettiBurst trigger={slide === 9} />
           <motion.div variants={popInBig}>
             <Star size={64} className="text-yellow-400 mb-8" />
           </motion.div>
@@ -428,7 +581,7 @@ export default function WrappedPage() {
           {data.topStarredMessage ? (
             <>
               <motion.p variants={contentFadeIn} className="text-slate-300 mb-8 max-w-2xl whitespace-pre-wrap leading-relaxed text-lg">
-                “{data.topStarredMessage.content}”
+                &quot;{data.topStarredMessage.content}&quot;
               </motion.p>
               <motion.div variants={slideInFromBottom} className="flex items-center gap-4">
                 <AvatarImage
@@ -452,7 +605,7 @@ export default function WrappedPage() {
         </motion.div>
       </div>
     ),
-    // 5 Suspense before most loved
+    // 10 Suspense before most loved
     (
       <motion.div key="suspense-loved" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -462,11 +615,11 @@ export default function WrappedPage() {
         <PulsingDots className="bg-red-400" />
       </motion.div>
     ),
-    // 6 Top loved message reveal
+    // 11 Top loved message reveal
     (
       <div key="loved-message" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
-          <ConfettiBurst trigger={slide === 6} />
+          <ConfettiBurst trigger={slide === 11} />
           <motion.div variants={popInBig}>
             <Heart size={64} className="text-red-400 mb-8" />
           </motion.div>
@@ -474,7 +627,7 @@ export default function WrappedPage() {
           {data.mostLovedMessage ? (
             <>
               <motion.p variants={contentFadeIn} className="text-slate-300 mb-8 max-w-2xl whitespace-pre-wrap leading-relaxed text-lg">
-                “{data.mostLovedMessage.content}”
+                &quot;{data.mostLovedMessage.content}&quot;
               </motion.p>
               <motion.div variants={slideInFromBottom} className="flex items-center gap-4">
                 <AvatarImage
@@ -498,7 +651,7 @@ export default function WrappedPage() {
         </motion.div>
       </div>
     ),
-    // 7 Suspense before most hated
+    // 12 Suspense before most hated
     (
       <motion.div key="suspense-hated" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -508,7 +661,7 @@ export default function WrappedPage() {
         <PulsingDots className="bg-gray-500" />
       </motion.div>
     ),
-    // 8 Most Hated Message Reveal
+    // 13 Most Hated Message Reveal
     (
       <div key="hated-message" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -519,7 +672,7 @@ export default function WrappedPage() {
           {data.mostHatedMessage ? (
             <>
               <motion.p variants={contentFadeIn} className="text-slate-300 mb-8 max-w-2xl whitespace-pre-wrap leading-relaxed text-lg">
-                “{data.mostHatedMessage.content}”
+                &quot;{data.mostHatedMessage.content}&quot;
               </motion.p>
               <motion.div variants={slideInFromBottom} className="flex items-center gap-4">
                 <AvatarImage
@@ -543,7 +696,7 @@ export default function WrappedPage() {
         </motion.div>
       </div>
     ),
-    // 9 Suspense before top user
+    // 14 Suspense before top user
     (
       <motion.div key="suspense-user" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -553,7 +706,7 @@ export default function WrappedPage() {
         <PulsingDots className="bg-pink-400" />
       </motion.div>
     ),
-    // 10 Top user by upvotes
+    // 15 Top user by upvotes
     (
       <div key="top-user" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -583,7 +736,7 @@ export default function WrappedPage() {
         </motion.div>
       </div>
     ),
-    // 11 Suspense before supporter
+    // 16 Suspense before supporter
     (
       <motion.div key="suspense-supporter" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -593,7 +746,7 @@ export default function WrappedPage() {
         <PulsingDots className="bg-yellow-400" />
       </motion.div>
     ),
-    // 12 Biggest supporter
+    // 17 Biggest supporter
     (
         <div key="supporter" className="flex items-center justify-center h-full w-full p-4">
             <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -623,21 +776,90 @@ export default function WrappedPage() {
             </motion.div>
         </div>
     ),
-    // 13 Outro
+    // 18 Outro
     (
-      <motion.div key="outro" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0, rotate: -5 }} animate={{ opacity: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 150 }}>
-        <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-6">
-          Thanks for vibing!
-        </h2>
-        <p className="text-slate-300 max-w-xl text-lg mb-8">
-          Keep spreading good vibes and come back next month for more.
-        </p>
-        <a
-          href="/leaderboard"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-200 text-white font-semibold"
+      <motion.div 
+        key="outro" 
+        className="flex flex-col items-center justify-center h-full text-center px-6 relative" 
+        initial={{ opacity: 0, rotate: -5 }} 
+        animate={{ opacity: 1, rotate: 0 }} 
+        transition={{ type: "spring", stiffness: 150 }}
+      >
+        {/* Floating hearts background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {Array.from({ length: 20 }).map((_, i) => {
+            const left = Math.random() * 100;
+            const delay = Math.random() * 5;
+            const duration = 10 + Math.random() * 10;
+            const size = 24 + Math.random() * 24;
+            return (
+              <motion.div
+                key={i}
+                style={{ 
+                  left: `${left}%`, 
+                  fontSize: size,
+                  position: 'absolute',
+                  top: '-10%'
+                }}
+                animate={{ 
+                  y: '120vh', 
+                  rotate: [0, Math.random() * 360, Math.random() * 360],
+                  opacity: [0.2, 1, 0]
+                }}
+                transition={{ 
+                  duration, 
+                  delay, 
+                  repeat: Infinity, 
+                  repeatType: 'loop',
+                  ease: "easeInOut" 
+                }}
+              >
+                ❤️
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Content */}
+        <motion.h2 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          className="text-5xl md:text-6xl font-black bg-gradient-to-r from-pink-500 via-red-500 to-orange-500 bg-clip-text text-transparent mb-6"
         >
-          Back to Leaderboard <ArrowRight size={16} />
-        </a>
+          Thanks for Vibing, Hack Clubbers! 💖
+        </motion.h2>
+        
+        <motion.p 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-slate-300 max-w-2xl text-xl mb-8 leading-relaxed"
+        >
+          You&apos;ve created countless moments of joy, support, and connection this month. 
+          Every reaction, every message, every vibe – they all matter. 
+          Keep spreading love, creativity, and community! 🚀
+        </motion.p>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, type: "spring", stiffness: 260 }}
+          className="flex gap-4"
+        >
+          <a
+            href="/leaderboard"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 transition-all duration-200 text-white font-semibold"
+          >
+            Back to Leaderboard <ArrowRight size={16} />
+          </a>
+          <button
+            onClick={(e) => { e.stopPropagation(); setSlide(0); }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-all duration-200 text-slate-300 font-semibold"
+          >
+            Replay Wrapped <RefreshCw size={16} />
+          </button>
+        </motion.div>
       </motion.div>
     ),
   ];
