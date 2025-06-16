@@ -19,6 +19,7 @@ interface SlackChannel {
 // --- Caching for fetched data ---
 const cache = {
   emojis: null as Record<string, string> | null,
+  emojisPromise: null as Promise<Record<string, string>> | null,
   users: new Map<string, SlackUser>(),
   channels: new Map<string, SlackChannel>(),
 };
@@ -26,16 +27,21 @@ const cache = {
 // --- API Fetching Functions ---
 async function fetchEmojis() {
   if (cache.emojis) return cache.emojis;
-  try {
-    const res = await fetch('/api/slack/emojis');
-    if (!res.ok) throw new Error('Failed to fetch emojis');
-    const emojis = await res.json();
-    cache.emojis = emojis;
-    return emojis;
-  } catch (error) {
-    console.error(error);
-    return {};
-  }
+  if (cache.emojisPromise) return cache.emojisPromise;
+  cache.emojisPromise = (async () => {
+    try {
+      const res = await fetch('/api/slack/emojis');
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      cache.emojis = data;
+      return data;
+    } catch (e) {
+      console.error('Emoji fetch failed', e);
+      cache.emojis = {};
+      return {};
+    }
+  })();
+  return cache.emojisPromise;
 }
 
 async function fetchUserInfo(userId: string) {
@@ -53,35 +59,33 @@ async function fetchUserInfo(userId: string) {
 
 // --- Main Component ---
 export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
+  const [emojiReady, setEmojiReady] = useState<boolean>(!!cache.emojis);
   const [parsedHtml, setParsedHtml] = useState('');
+
+  // fetch emojis once
+  useEffect(() => {
+    if (!emojiReady) {
+      fetchEmojis().then(() => setEmojiReady(true));
+    }
+  }, [emojiReady]);
 
   useEffect(() => {
     let isMounted = true;
-    
-    async function parseMrkdwn() {
-      if (!children) {
-        setParsedHtml('');
-        return;
-      }
-
-      const emojis = await fetchEmojis();
+    (async () => {
+      const emojis = cache.emojis || {};
       let text = children;
 
       // --- HTML Entity Encoding ---
       text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
       // --- Emojis ---
-      if (emojis) {
-        text = text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, emojiName) => {
-          const emojiUrl = emojis[emojiName];
-          if (emojiUrl && emojiUrl.startsWith('http')) {
-            return `<img src="${emojiUrl}" alt="${emojiName}" class="inline-emoji" />`;
-          } else if (emojiUrl) { // alias
-            return `:${emojiUrl.replace('alias:', '')}:`;
-          }
-          return match;
-        });
-      }
+      text = text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, name) => {
+        if (emojis && emojis[name] && emojis[name].startsWith('http')) {
+          return `<img src="${emojis[name]}" alt="${name}" class="inline-emoji" />`;
+        }
+        // Placeholder spinner
+        return `<span class="inline-emoji emoji-spinner" data-emoji-name="${name}"></span>`;
+      });
 
       // --- Basic Formatting ---
       text = text
@@ -89,7 +93,7 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
         .replace(/_(.*?)_/g, '<em>$1</em>')
         .replace(/~(.*?)~/g, '<del>$1</del>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
-        .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+        .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/\n/g, '<br />');
         
       // --- Links ---
@@ -103,36 +107,53 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
       );
 
       // --- Mentions (placeholders) ---
-      text = text.replace(/&lt;@([A-Z0-9]+)&gt;/g, `<span class="mention mention-user" data-user-id="$1">@$1</span>`);
+      text = text.replace(/&lt;@([A-Z0-9]+)&gt;/g, `<span class="mention mention-user" data-loading="true" data-user-id="$1">@$1</span>`);
       text = text.replace(/&lt;#([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-channel" data-channel-id="$1">#$2</span>`);
       text = text.replace(/&lt;!subteam\^([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-group" data-group-id="$1">@$2</span>`);
-      text = text.replace(/&lt;!(here|channel|everyone)\|?([^>]*)&gt;/g, `<span class="mention mention-special">@$1</span>`);
+      text = text.replace(/&lt;!(here|channel|everyone)&gt;/g, `<span class="mention mention-special">@$1</span>`);
       
       if (isMounted) {
         setParsedHtml(DOMPurify.sanitize(text));
       }
-    }
-
-    parseMrkdwn();
+    })();
 
     return () => { isMounted = false; };
-  }, [children]);
+  }, [children, emojiReady]);
 
   useEffect(() => {
     if (!parsedHtml) return;
 
     // --- Resolve User Mentions ---
-    const userMentions = document.querySelectorAll<HTMLElement>('.mention[data-user-id]');
+    const userMentions = document.querySelectorAll<HTMLElement>('.mention[data-loading="true"][data-user-id]');
     userMentions.forEach(async (el) => {
       const userId = el.dataset.userId;
       if (userId) {
         const user = await fetchUserInfo(userId);
         if (user) {
           el.textContent = `@${user.profile?.display_name || user.name}`;
+          el.removeAttribute('data-loading');
         }
       }
     });
   }, [parsedHtml]);
+
+  // re-render emojis once ready
+  useEffect(() => {
+    if (!emojiReady) return;
+    const spinnerNodes = document.querySelectorAll<HTMLElement>('.emoji-spinner');
+    if (spinnerNodes.length === 0) return;
+    spinnerNodes.forEach(node => {
+      const name = node.dataset.emojiName!;
+      const url = cache.emojis?.[name];
+      if (url && url.startsWith('http')) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = name;
+        img.className = 'inline-emoji';
+        node.replaceWith(img);
+      }
+    });
+  }, [emojiReady]);
 
   return <div dangerouslySetInnerHTML={{ __html: parsedHtml }} className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base" />;
 }; 

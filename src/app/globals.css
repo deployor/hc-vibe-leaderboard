@@ -95,3 +95,22 @@ del {
   text-decoration: line-through;
   color: #666;
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.emoji-spinner,
+.mention[data-loading="true"]::after {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  vertical-align: middle;
+}
+
+.emoji-spinner {
+  margin: 0 2px;
+}
