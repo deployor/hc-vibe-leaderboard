@@ -38,8 +38,6 @@ export async function GET(req: NextRequest) {
     const teamId = team?.id;
     const accessToken = oauthResponse.access_token!;
 
-    // We have the user's token, but for consistency and to ensure we have the right scopes,
-    // we'll use the main bot token to fetch user info.
     const botSlack = new WebClient(process.env.SLACK_BOT_TOKEN);
     const userInfo = await botSlack.users.info({ user: slackUserId });
 

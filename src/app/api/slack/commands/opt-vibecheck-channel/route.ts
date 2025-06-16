@@ -6,7 +6,6 @@ const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 
 async function isUserChannelManager(userId: string, channelId: string): Promise<boolean> {
   try {
-    // Special permission for the app owner
     if (userId === "U078PH0GBEH") {
       return true;
     }
@@ -16,14 +15,13 @@ async function isUserChannelManager(userId: string, channelId: string): Promise<
       slack.conversations.info({ channel: channelId })
     ]);
 
-    // A user is a manager if they are a workspace admin/owner OR the creator of the channel.
     const isWorkspaceAdmin = !!(userInfo.ok && (userInfo.user?.is_admin || userInfo.user?.is_owner));
     const isChannelCreator = !!(channelInfo.ok && channelInfo.channel?.creator === userId);
 
     return isWorkspaceAdmin || isChannelCreator;
   } catch (error) {
     console.error(`Error checking channel manager status for user ${userId} in channel ${channelId}:`, error);
-    return false; // Fail safe
+    return false;
   }
 }
 

@@ -16,9 +16,6 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") ?? "20");
   const offset = parseInt(searchParams.get("offset") ?? "0");
 
-  // Require at least some engagement - either upvotes > 0 OR downvotes > 0
-  // Also explicitly exclude messages where both are 0
-  // Exclude polling channel C0710J7F4U9
   const hasEngagement = and(
     or(gt(messages.upvotes, 0), gt(messages.downvotes, 0)),
     ne(sql`upvotes + downvotes`, 0),
@@ -41,13 +38,10 @@ export async function GET(req: NextRequest) {
     where = hasEngagement;
   }
 
-  // Determine sort order
   let orderBy;
   if (sort === "downvotes") {
-    // For downvotes, tie-break by net score ascending (lower score is "more" downvoted)
     orderBy = [desc(messages.downvotes), asc(sql`upvotes - downvotes`), desc(messages.createdAt)];
   } else {
-    // Default to sorting by net score (upvotes - downvotes), then by upvotes, then by date
     orderBy = [desc(sql`upvotes - downvotes`), desc(messages.upvotes), desc(messages.createdAt)];
   }
 

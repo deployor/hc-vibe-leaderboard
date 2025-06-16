@@ -29,14 +29,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingUser) {
-      // User is opted out, so opt them back in.
       await db.delete(optedOutUsers).where(eq(optedOutUsers.slackUserId, userId));
       return NextResponse.json({
         response_type: "ephemeral",
         text: "Welcome back! You have opted back in to Vibe Check. Your messages will now be tracked on the leaderboard.",
       });
     } else {
-      // User is not opted out, so opt them out.
       await db.insert(optedOutUsers).values({ slackUserId: userId });
       return NextResponse.json({
         response_type: "ephemeral",

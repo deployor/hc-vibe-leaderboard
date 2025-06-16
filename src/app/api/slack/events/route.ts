@@ -34,22 +34,16 @@ export async function POST(req: NextRequest) {
     const event = data.event;
 
     if (event.type === "app_home_opened") {
-      // We don't want to block the main thread.
-      // We'll process this in the background.
       (async () => {
         await publishHomeView(event.user);
       })();
     }
 
-    // --- Handle new channel creation ---
     if (event.type === "channel_created") {
       const { channel } = event;
       console.log(`New channel created: ${channel.name} (${channel.id}) by ${channel.creator}`);
 
-      // We don't want to block the main thread.
-      // We'll process the join and message posting in the background.
       (async () => {
-        // Wait 5 seconds to give the channel time to settle.
         await new Promise(resolve => setTimeout(resolve, 5000));
         
         try {
@@ -113,7 +107,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // --- Update stats for the user who GAVE the reaction ---
       if (reactingUserId) {
         const isAdd = event.type === "reaction_added";
         const change = isAdd ? 1 : -1;
@@ -222,7 +215,6 @@ export async function POST(req: NextRequest) {
       }
 
       const { channel, ts } = item;
-      // Check if this is a threaded message
       const threadTs = item.thread_ts;
       const isThreadReply = threadTs && threadTs !== ts;
 
@@ -312,7 +304,6 @@ export async function POST(req: NextRequest) {
         where: eq(messages.messageTs, ts),
       });
 
-      // --- Check if the message author has opted out ---
       const messageAuthorId = message?.userId;
       if (messageAuthorId) {
         const isOptedOut = await db.query.optedOutUsers.findFirst({
@@ -324,7 +315,6 @@ export async function POST(req: NextRequest) {
         }
       }
       
-      // If message doesn't exist yet, we need to fetch its author to check opt-out status
       if (!message) {
         try {
           let messageData;
@@ -332,7 +322,6 @@ export async function POST(req: NextRequest) {
           let parentUserName = null;
 
           if (isThreadReply) {
-            // For threaded messages, we need to fetch from the thread
             const threadHistory = await slack.conversations.replies({ 
               channel, 
               ts: threadTs!,
@@ -340,7 +329,6 @@ export async function POST(req: NextRequest) {
             });
             messageData = threadHistory.messages?.find(msg => msg.ts === ts);
             
-            // Also fetch the parent message for context (it should be the first message in the thread)
             const parentMessage = threadHistory.messages?.[0];
             if (parentMessage && parentMessage.ts === threadTs) {
               parentContent = parentMessage.text || "";
@@ -348,9 +336,7 @@ export async function POST(req: NextRequest) {
               parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
                         }
             
-            // console.log(`Thread reply processing: ts=${ts}, threadTs=${threadTs}, replyContent="${messageData?.text?.substring(0, 50)}...", parentContent="${parentContent?.substring(0, 50)}..."`);
           } else {
-            // For regular messages, use conversations.history
             const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
             messageData = history.messages?.[0];
           }
@@ -359,7 +345,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
           }
 
-          // --- Check opt-out status BEFORE creating the record ---
           const isOptedOut = await db.query.optedOutUsers.findFirst({
             where: eq(optedOutUsers.slackUserId, messageData.user),
           });
@@ -385,8 +370,8 @@ export async function POST(req: NextRequest) {
             userName: userName,
             avatarUrl: avatarUrl,
             content: messageData.text,
-            upvotes: 0, // Start with 0, will be synced immediately after
-            downvotes: 0, // Start with 0, will be synced immediately after
+            upvotes: 0,
+            downvotes: 0,
             threadTs: threadTs || null,
             isThreadReply: isThreadReply || false,
             parentContent: parentContent,
@@ -394,7 +379,6 @@ export async function POST(req: NextRequest) {
             updatedAt: new Date(),
           });
 
-          // After successful insert, perform the first sync.
           await resyncMessageReactions(ts, channel);
 
         } catch (error) {
@@ -410,11 +394,9 @@ export async function POST(req: NextRequest) {
           }
         }
       } else {
-        // --- Re-sync reaction counts on the message itself ---
         await resyncMessageReactions(ts, channel);
       }
 
-      // --- Update reaction counts on the message itself ---
       try {
         const updatePayload: Record<string, unknown> = {};
         const msgChange = event.type === "reaction_added" ? 1 : -1;

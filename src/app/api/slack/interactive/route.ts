@@ -23,10 +23,7 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(payloadStr);
 
-  // Acknowledge the interaction immediately.
-  // Slack requires a response within 3 seconds.
   if (payload.type === "block_actions") {
-    // We don't want to block the response to slack, so we do the work async
     (async () => {
       const action = payload.actions[0];
       const userId = payload.user.id;
@@ -38,16 +35,13 @@ export async function POST(req: NextRequest) {
           });
 
           if (existingUser) {
-            // User is opted out, so opt them back in.
             await db.delete(optedOutUsers).where(eq(optedOutUsers.slackUserId, userId));
             console.log(`User ${userId} opted back in.`);
           } else {
-            // User is not opted out, so opt them out.
             await db.insert(optedOutUsers).values({ slackUserId: userId });
             console.log(`User ${userId} opted out.`);
           }
 
-          // After changing their status, update their App Home view
           await publishHomeView(userId);
 
         } catch (error) {

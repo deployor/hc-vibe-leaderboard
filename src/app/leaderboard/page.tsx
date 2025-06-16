@@ -498,7 +498,7 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
         exit={{ y: -30, opacity: 0 }}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
         className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-2xl p-8 max-w-2xl w-full relative shadow-2xl text-white"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+        onClick={(e) => e.stopPropagation()}
       >
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
           <X size={24} />
@@ -543,7 +543,7 @@ export default function LeaderboardPage() {
   const [offset, setOffset] = useState(0);
   const [isInfoModalOpen, setInfoModalOpen] = useState(false);
 
-  // Identify user for analytics
+  // Identify user for analytics (sorry)
   useEffect(() => {
     const identifyUser = async () => {
       try {

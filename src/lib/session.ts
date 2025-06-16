@@ -34,14 +34,12 @@ export async function getSession(): Promise<SessionData | null> {
       password: sessionOptions.password,
     });
 
-    // Add a check to ensure the session and its critical data are valid
     if (!session || !session.slackUserId) {
       console.error("Invalid session data found after unsealing. Deleting cookie.", session);
       await deleteSession();
       return null;
     }
 
-    // Back-fill logic to ensure any user with a valid session is in our DB.
     const userExists = await db.query.users.findFirst({
         where: eq(users.id, session.slackUserId),
     });

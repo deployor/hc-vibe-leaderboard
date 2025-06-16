@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-// Ensure this route is always executed dynamically
 export const dynamic = "force-dynamic";
 
 export async function GET() {

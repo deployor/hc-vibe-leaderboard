@@ -5,7 +5,7 @@ import { desc, sql, and, gt, lt } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 
 interface WrappedResponse {
-  month: string; // YYYY-MM
+  month: string;
   totalReactions?: number;
   reactionBreakdown?: {
     yay: number;
@@ -77,18 +77,17 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const monthParam = searchParams.get("month"); // expecting YYYY-MM
+  const monthParam = searchParams.get("month");
 
-  // Determine date range for target month (default current month UTC)
   const now = new Date();
   let targetYear = now.getUTCFullYear();
-  let targetMonth = now.getUTCMonth(); // 0-indexed
+  let targetMonth = now.getUTCMonth();
 
   if (monthParam) {
     const [y, m] = monthParam.split("-").map(Number);
     if (!isNaN(y) && !isNaN(m)) {
       targetYear = y;
-      targetMonth = m - 1; // convert to 0-indexed
+      targetMonth = m - 1;
     }
   }
 
@@ -100,7 +99,6 @@ export async function GET(req: NextRequest) {
   };
 
   try {
-    // Calculate total reactions and breakdown
     const reactionBreakdownResult = await db
       .select({
         yay: sql<number>`SUM(${messages.yay})`.as("yay"),
@@ -139,10 +137,8 @@ export async function GET(req: NextRequest) {
       pingBad: Number(reactionBreakdown.pingBad) || 0,
     };
 
-    // Calculate total reactions
     response.totalReactions = Object.values(response.reactionBreakdown).reduce((a, b) => a + b, 0);
 
-    // Top upvoted message in month
     const topMessage = await db
       .select()
       .from(messages)
@@ -163,7 +159,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Top starred message in month
     const topStarMsg = await db
       .select()
       .from(messages)
@@ -183,7 +178,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Most Loved Message (highest net score)
     const mostLoved = await db
       .select({
         id: messages.id,
@@ -210,7 +204,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Most Hated Message (most downvotes)
     const mostHated = await db
       .select()
       .from(messages)
@@ -230,7 +223,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Top upvoted user in month (aggregate by user)
     const topUserAgg = await db
       .select({
         userId: messages.userId,
@@ -256,7 +248,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Biggest supporter (most given upvotes overall; not filtered by month due to lack of timestamp)
     const topSupporter = await db
       .select()
       .from(userStats)

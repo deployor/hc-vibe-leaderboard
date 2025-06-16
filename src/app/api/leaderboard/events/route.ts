@@ -4,26 +4,22 @@ import { messages } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 
-// This function is an SSE endpoint that keeps a connection open
-// and sends a message to the client when the leaderboard data has changed.
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Create a transform stream to pipe data through
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
 
-  let lastKnownUpdate = new Date(0); // Initialize with a very old date
+  let lastKnownUpdate = new Date(0);
 
   const sendUpdate = (data: string) => {
     writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
   };
   
-  // This function will run periodically to check for database updates
   const checkForUpdates = async () => {
     try {
       const latestUpdate = await db.select({
@@ -41,17 +37,14 @@ export async function GET(req: NextRequest) {
     }
   };
 
-  // Run the check immediately on connection, then every 3 seconds
   checkForUpdates(); 
   const intervalId = setInterval(checkForUpdates, 3000);
 
-  // Clean up when the client disconnects
   req.signal.addEventListener("abort", () => {
     clearInterval(intervalId);
     writer.close();
   });
 
-  // Return a streaming response
   return new Response(readable, {
     headers: {
       "Content-Type": "text/event-stream",

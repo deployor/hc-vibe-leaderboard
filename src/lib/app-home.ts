@@ -65,7 +65,7 @@ async function buildHomeView(userId: string): Promise<View> {
         },
         style: optOutButtonStyle,
         action_id: "toggle_opt_out",
-        value: userId, // Pass user ID in value
+        value: userId,
       },
     },
     {
@@ -98,7 +98,6 @@ async function buildHomeView(userId: string): Promise<View> {
     },
   ];
 
-  // Add footer with profile picture
   const deployorImage = await fetchDeployorImage();
   blocks.push({
     type: "divider",

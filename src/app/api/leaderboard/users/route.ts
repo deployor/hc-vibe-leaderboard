@@ -16,9 +16,6 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") ?? "20");
   const offset = parseInt(searchParams.get("offset") ?? "0");
 
-  // Require at least some engagement - either upvotes > 0 OR downvotes > 0
-  // Also explicitly exclude messages where both are 0
-  // Exclude polling channel C0710J7F4U9
   const hasEngagement = and(
     or(gt(messages.upvotes, 0), gt(messages.downvotes, 0)),
     ne(sql`upvotes + downvotes`, 0),
@@ -52,13 +49,10 @@ export async function GET(req: NextRequest) {
       lastMessageAt: sql<string>`MAX(${messages.createdAt})`.as("lastMessageAt"),
   }).from(messages).where(where).groupBy(messages.userId, messages.userName, messages.avatarUrl).as("agg");
 
-  // Determine sort order for user aggregation
   let orderBy;
   if (sort === "downvotes") {
-    // For downvotes, sort by total downvotes descending, then by net score ascending (more negative = more hated)
     orderBy = [desc(aggregatedMessages.totalDownvotes), asc(aggregatedMessages.netScore)];
   } else {
-    // Default to sorting by net score (total upvotes - total downvotes), then by total upvotes
     orderBy = [desc(aggregatedMessages.netScore), desc(aggregatedMessages.totalUpvotes)];
   }
 

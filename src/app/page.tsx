@@ -27,8 +27,6 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // This is a client component, but we need to check session status
-    // A quick fetch to a session API endpoint is a common pattern for this
     fetch("/api/auth/session")
       .then((res) => res.json())
       .then((data) => {
@@ -40,7 +38,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white relative overflow-hidden flex flex-col items-center justify-center">
-      {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,

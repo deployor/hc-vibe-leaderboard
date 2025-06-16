@@ -175,7 +175,6 @@ const contentFadeIn: Variants = {
     show: { opacity: 1, transition: { duration: 0.8 } },
 }
 
-// Simple count-up animation component
 const CountUp = ({ value, duration = 1.4, className }: { value: number; duration?: number; className?: string }) => {
   const [display, setDisplay] = useState(0);
 
@@ -195,7 +194,6 @@ const CountUp = ({ value, duration = 1.4, className }: { value: number; duration
   return <span className={className}>{display.toLocaleString()}</span>;
 };
 
-// Floating emoji background for extra flair
 const FloatingEmojis = () => {
   const emojis = useMemo(() => ["👍", "🔥", "💖", "⭐️", "🎉", "✨"], []);
 
@@ -222,7 +220,6 @@ const FloatingEmojis = () => {
   );
 };
 
-// Typewriter component for suspense
 const TypewriterText = ({ text, speed = 40, className }: { text: string; speed?: number; className?: string }) => {
   const [display, setDisplay] = useState("");
   useEffect(() => {
@@ -238,10 +235,8 @@ const TypewriterText = ({ text, speed = 40, className }: { text: string; speed?:
   return <span className={className}>{display}</span>;
 };
 
-// Helper to create random id
 const randomId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11));
 
-// Confetti burst component
 const ConfettiBurst = ({ trigger }: { trigger: boolean }) => {
   const [pieces, setPieces] = useState<string[]>([]);
   useEffect(() => {
@@ -332,9 +327,7 @@ export default function WrappedPage() {
     setSlide((prev) => Math.max(prev - 1, 0));
   };
 
-  // Keyboard navigation
   useEffect(() => {
-    // Prevent WebSocket connections in production
     if (process.env.NODE_ENV === 'production') return;
 
     const handler = (e: KeyboardEvent) => {
@@ -390,7 +383,7 @@ export default function WrappedPage() {
         <PulsingDots className="bg-green-400" />
       </motion.div>
     ),
-    // 2 New Slide: Total Reactions Count
+    // 2 Total Reactions Count
     (
       <div key="total-reactions" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -416,7 +409,7 @@ export default function WrappedPage() {
         </motion.div>
       </div>
     ),
-    // 3 New Slide: Reactions Breakdown Intro
+    // 3 Reactions Breakdown Intro
     (
       <motion.div key="reactions-breakdown-intro" className="flex flex-col items-center justify-center h-full text-center px-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
         <TypewriterText
@@ -444,7 +437,7 @@ export default function WrappedPage() {
         </div>
       </motion.div>
     ),
-    // 4 New Slide: Reactions Breakdown
+    // 4 Reactions Breakdown
     (
       <div key="reactions-breakdown" className="flex items-center justify-center h-full w-full p-4">
         <motion.div variants={revealContainer} initial="hidden" animate="show" className="relative w-full max-w-4xl flex flex-col items-center justify-center bg-slate-800/60 backdrop-blur-md border border-slate-700/50 rounded-3xl p-8 md:p-12 shadow-2xl">
@@ -785,7 +778,6 @@ export default function WrappedPage() {
         animate={{ opacity: 1, rotate: 0 }} 
         transition={{ type: "spring", stiffness: 150 }}
       >
-        {/* Floating hearts background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {Array.from({ length: 20 }).map((_, i) => {
             const left = Math.random() * 100;
@@ -820,7 +812,6 @@ export default function WrappedPage() {
           })}
         </div>
 
-        {/* Content */}
         <motion.h2 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -943,7 +934,6 @@ export default function WrappedPage() {
             onClick={(e) => {
               e.stopPropagation();
               navigator.clipboard.writeText(window.location.href).then(() => {
-                // show simple flash message
                 alert("Link copied to clipboard!");
               });
             }}
