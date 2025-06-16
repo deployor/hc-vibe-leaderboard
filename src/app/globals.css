@@ -42,9 +42,6 @@ body {
   font-weight: bold;
   padding: 0 4px;
   border-radius: 4px;
-  display: inline-block;
-  margin: 0 2px;
-  line-height: 1.4;
 }
 
 .mention-here {

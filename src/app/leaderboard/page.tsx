@@ -461,14 +461,7 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
           )}
           
           <div className="relative">
-            {(() => {
-              console.log('Rendering message:', {
-                content: msg.content,
-                contentType: typeof msg.content,
-                contentLength: msg.content?.length
-              });
-              return <MrkdwnText>{msg.content || ''}</MrkdwnText>;
-            })()}
+            <MrkdwnText>{msg.content}</MrkdwnText>
           </div>
         </div>
         
