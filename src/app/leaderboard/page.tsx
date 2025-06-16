@@ -509,21 +509,21 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
           <h2 className="text-3xl font-bold">What is Vibe Check?</h2>
         </div>
         <div className="space-y-4 text-slate-300 leading-relaxed">
-          <p>
-            For years, the <a href="https://hackclub.com/slack" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium">Hack Club Slack</a> has had a fun, unofficial tradition: reacting to messages with <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded-md text-sm">:upvote:</span> and <span className="font-mono bg-slate-700 px-1.5 py-0.5 rounded-md text-sm">:downvote:</span> to show how you feel.
-          </p>
-          <p>
+          <MrkdwnText>
+            For years, the [Hack Club Slack](https://hackclub.com/slack) has had a fun, unofficial tradition: reacting to messages with `:upvote:` and `:downvote:` to show how you feel.
+          </MrkdwnText>
+          <MrkdwnText>
             It was a simple way to give feedback, share appreciation, or just have fun. But the votes were scattered, their stories lost in the endless scroll.
-          </p>
+          </MrkdwnText>
           <p className="font-medium text-white">
             This leaderboard changes that.
           </p>
-          <p>
+          <MrkdwnText>
             Vibe Check brings that beloved tradition to life, turning those ephemeral reactions into a friendly competition. It&apos;s a place to celebrate the most helpful, hilarious, and heartwarming moments from our community.
-          </p>
-          <p>
+          </MrkdwnText>
+          <MrkdwnText>
             Keep the vibes going! React to any message in Slack (including replies in threads) and see it pop up here.
-          </p>
+          </MrkdwnText>
         </div>
       </motion.div>
     </motion.div>
