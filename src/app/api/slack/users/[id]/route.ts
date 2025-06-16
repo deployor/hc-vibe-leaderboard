@@ -1,6 +1,6 @@
 import { WebClient } from "@slack/web-api";
 import { NextResponse, NextRequest } from "next/server";
-import { LRUCache } from 'lru-cache';
+import QuickLRU from 'quick-lru';
 
 const slack = new WebClient(process.env.SLACK_MRKDWN_BOT_TOKEN || process.env.SLACK_BOT_TOKEN);
 
@@ -13,10 +13,8 @@ interface UserInfo {
   };
 }
 
-const userCache = new LRUCache<string, UserInfo>({
-  max: 500, // cache up to 500 users
-  ttl: 1000 * 60 * 60, // 1 hour
-});
+// 500 users cached for 1 hour
+const userCache = new QuickLRU<string, UserInfo>({ maxSize: 500, maxAge: 1000 * 60 * 60 });
 
 export async function GET(
   request: NextRequest,
