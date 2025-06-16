@@ -1,5 +1,5 @@
 import { WebClient } from "@slack/web-api";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { LRUCache } from 'lru-cache';
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -19,10 +19,10 @@ const userCache = new LRUCache<string, UserInfo>({
 });
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const userId = params.id;
+  const { id: userId } = await params;
   if (!userId) {
     return NextResponse.json({ error: "User ID is required" }, { status: 400 });
   }
