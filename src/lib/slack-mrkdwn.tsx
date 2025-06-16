@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 
 // Emoji type definition
@@ -43,12 +45,9 @@ export class SlackMrkdwn {
     return this.emojiPromise;
   }
 
-  // Convert emoji to image
-  private static async convertEmoji(emoji: string): Promise<string> {
-    await this.getEmojis();
-    
-    // Find emoji in the list
-    const emojiData = this.emojiCache.find(
+  // Convert emoji to image (synchronous version)
+  private static convertEmoji(emoji: string, emojis: SlackEmoji[]): string {
+    const emojiData = emojis.find(
       e => e.short_names.includes(emoji.replace(/:/g, ''))
     );
 
@@ -59,8 +58,8 @@ export class SlackMrkdwn {
     return emoji;
   }
 
-  // Parse mrkdwn text
-  static async parse(text: string): Promise<React.ReactNode> {
+  // Parse mrkdwn text (synchronous version)
+  static parse(text: string, emojis: SlackEmoji[] = []): string {
     // Escape HTML special characters first
     let parsedText = this.escapeHtml(text);
 
@@ -110,20 +109,44 @@ export class SlackMrkdwn {
     const emojiMatches = parsedText.match(emojiRegex) || [];
     
     for (const emoji of emojiMatches) {
-      const emojiImage = await this.convertEmoji(emoji);
+      const emojiImage = this.convertEmoji(emoji, emojis);
       parsedText = parsedText.replace(emoji, emojiImage);
     }
 
     // Sanitize the final HTML
-    const sanitizedHtml = DOMPurify.sanitize(parsedText);
-
-    // Convert to React elements
-    return <span dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
+    return DOMPurify.sanitize(parsedText);
   }
 }
 
-// Utility component for easy rendering
-export const MrkdwnText: React.FC<{ children: string }> = async ({ children }) => {
-  const parsedContent = await SlackMrkdwn.parse(children);
-  return <>{parsedContent}</>;
+// Client-side component for rendering mrkdwn
+export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
+  const [emojis, setEmojis] = useState<SlackEmoji[]>([]);
+  const [parsedContent, setParsedContent] = useState<string>('');
+
+  useEffect(() => {
+    const fetchEmojis = async () => {
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/iamcal/emoji-data/master/emoji.json');
+        const emojiData = await response.json();
+        setEmojis(emojiData);
+      } catch (error) {
+        console.error('Failed to fetch emojis', error);
+      }
+    };
+    fetchEmojis();
+  }, []);
+
+  useEffect(() => {
+    if (emojis.length > 0) {
+      const parsed = SlackMrkdwn.parse(children, emojis);
+      setParsedContent(parsed);
+    }
+  }, [children, emojis]);
+
+  return (
+    <div 
+      dangerouslySetInnerHTML={{ __html: parsedContent }} 
+      className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base"
+    />
+  );
 }; 
