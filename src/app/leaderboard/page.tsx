@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { LucideIcon } from "lucide-react";
 import { MrkdwnText } from '@/lib/slack-mrkdwn';
+import QuickLRU from 'quick-lru';
 
 declare global {
   interface Window {
@@ -435,10 +436,15 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
                     <div className="absolute top-0 left-4 -translate-y-1/2 w-3 h-3 bg-slate-900/95 border-t border-l border-slate-600/50 rotate-45"></div>
                   </div>
                 </div>
-                {msg.channelName && (
-                  <>
+                {msg.channelName ? (
+                  <> 
                     <span className="text-slate-600">&middot;</span>
                     <p className="text-sm text-slate-400">#{msg.channelName}</p>
+                  </>
+                ) : (
+                  <> 
+                    <span className="text-slate-600">&middot;</span>
+                    <ChannelName id={msg.channelId} />
                   </>
                 )}
               </div>
@@ -529,6 +535,33 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
     </motion.div>
   );
 }
+
+const channelCache = new QuickLRU<string, { name: string }>({ maxSize: 500, maxAge: 1000*60*60});
+
+const ChannelName = ({ id }: { id: string }) => {
+  const [name, setName] = useState<string | null>(channelCache.has(id) ? channelCache.get(id)!.name : null);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!name) {
+      fetch(`/api/slack/channels/${id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && mounted) {
+            channelCache.set(id, { name: data.name });
+            setName(data.name);
+          }
+        });
+    }
+    return () => { mounted = false; };
+  }, [id, name]);
+
+  return (
+    <p className="text-sm text-slate-400 flex items-center gap-1">
+      {name ? `#${name}` : <span className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />}
+    </p>
+  );
+};
 
 export default function LeaderboardPage() {
   const [messages, setMessages] = useState<Message[]>([]);

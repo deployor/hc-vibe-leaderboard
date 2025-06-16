@@ -57,6 +57,19 @@ async function fetchUserInfo(userId: string) {
   }
 }
 
+async function fetchChannelInfo(channelId: string) {
+  if (cache.channels.has(channelId)) return cache.channels.get(channelId);
+  try {
+    const res = await fetch(`/api/slack/channels/${channelId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    cache.channels.set(channelId, data as SlackChannel);
+    return data as SlackChannel;
+  } catch {
+    return null;
+  }
+}
+
 // --- Main Component ---
 export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
   const [emojiReady, setEmojiReady] = useState<boolean>(!!cache.emojis);
@@ -81,7 +94,7 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
       // --- Emojis ---
       text = text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, name) => {
         if (emojis && emojis[name] && emojis[name].startsWith('http')) {
-          return `<img src="${emojis[name]}" alt="${name}" class="inline-emoji" />`;
+          return `<img src="/api/slack/emoji/${encodeURIComponent(name)}" alt="${name}" class="inline-emoji" />`;
         }
         // Placeholder spinner
         return `<span class="inline-emoji emoji-spinner" data-emoji-name="${name}"></span>`;
@@ -108,7 +121,7 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
 
       // --- Mentions (placeholders) ---
       text = text.replace(/&lt;@([A-Z0-9]+)&gt;/g, `<span class="mention mention-user" data-loading="true" data-user-id="$1">@$1</span>`);
-      text = text.replace(/&lt;#([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-channel" data-channel-id="$1">#$2</span>`);
+      text = text.replace(/&lt;#([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-channel" data-loading="true" data-channel-id="$1">#$2</span>`);
       text = text.replace(/&lt;!subteam\^([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-group" data-group-id="$1">@$2</span>`);
       text = text.replace(/&lt;!(here|channel|everyone)&gt;/g, `<span class="mention mention-special">@$1</span>`);
       
@@ -154,6 +167,20 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
       }
     });
   }, [emojiReady]);
+
+  // resolve channel names
+  useEffect(() => {
+    if (!parsedHtml) return;
+    const channelNodes = document.querySelectorAll<HTMLElement>('.mention-channel[data-loading="true"][data-channel-id]');
+    channelNodes.forEach(async el => {
+      const cid = el.dataset.channelId!;
+      const info = await fetchChannelInfo(cid);
+      if (info) {
+        el.textContent = `#${info.name}`;
+        el.removeAttribute('data-loading');
+      }
+    });
+  }, [parsedHtml]);
 
   return <div dangerouslySetInnerHTML={{ __html: parsedHtml }} className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base" />;
 }; 

@@ -188,27 +188,29 @@ export async function POST(req: NextRequest) {
             } else {
                 const userInfo = await slack.users.info({ user: reactingUserId });
                 if (userInfo.ok && userInfo.user) {
-                    await db.insert(userStats).values({
-                        userId: reactingUserId,
-                        userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
-                        avatarUrl: userInfo.user.profile?.image_72,
-                        givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
-                        givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
-                        givenYay: givenYayChange > 0 ? 1 : 0,
-                        givenSob: givenSobChange > 0 ? 1 : 0,
-                        givenHeart: givenHeartChange > 0 ? 1 : 0,
-                        givenStar: givenStarChange > 0 ? 1 : 0,
-                        givenFire: givenFireChange > 0 ? 1 : 0,
-                        givenLeek: givenLeekChange > 0 ? 1 : 0,
-                        givenReal: givenRealChange > 0 ? 1 : 0,
-                        givenSame: givenSameChange > 0 ? 1 : 0,
-                        givenSkull: givenSkullChange > 0 ? 1 : 0,
-                        givenEyes: givenEyesChange > 0 ? 1 : 0,
-                        givenYipee: givenYipeeChange > 0 ? 1 : 0,
-                        givenPingGood: givenPingGoodChange > 0 ? 1 : 0,
-                        givenPingBad: givenPingBadChange > 0 ? 1 : 0,
-                        updatedAt: new Date(),
-                    });
+                    await db.insert(userStats)
+                        .values({
+                            userId: reactingUserId,
+                            userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
+                            avatarUrl: userInfo.user.profile?.image_72,
+                            givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
+                            givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
+                            givenYay: givenYayChange > 0 ? 1 : 0,
+                            givenSob: givenSobChange > 0 ? 1 : 0,
+                            givenHeart: givenHeartChange > 0 ? 1 : 0,
+                            givenStar: givenStarChange > 0 ? 1 : 0,
+                            givenFire: givenFireChange > 0 ? 1 : 0,
+                            givenLeek: givenLeekChange > 0 ? 1 : 0,
+                            givenReal: givenRealChange > 0 ? 1 : 0,
+                            givenSame: givenSameChange > 0 ? 1 : 0,
+                            givenSkull: givenSkullChange > 0 ? 1 : 0,
+                            givenEyes: givenEyesChange > 0 ? 1 : 0,
+                            givenYipee: givenYipeeChange > 0 ? 1 : 0,
+                            givenPingGood: givenPingGoodChange > 0 ? 1 : 0,
+                            givenPingBad: givenPingBadChange > 0 ? 1 : 0,
+                            updatedAt: new Date(),
+                        })
+                        .onConflictDoNothing();
                 }
             }
         }
