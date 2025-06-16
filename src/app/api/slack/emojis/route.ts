@@ -18,6 +18,10 @@ export async function GET() {
           customEmojis[name] = url;
         }
       }
+      
+      console.log(`Fetched ${Object.keys(customEmojis).length} custom emojis`);
+    } else {
+      console.warn('Failed to fetch emojis:', response);
     }
     
     return NextResponse.json(customEmojis);

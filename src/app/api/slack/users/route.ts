@@ -21,6 +21,8 @@ export async function GET() {
       }
     })) || [];
     
+    console.log(`Fetched ${users.length} users`);
+    
     return NextResponse.json(users);
   } catch (error) {
     console.error('Failed to fetch Slack users:', error);
