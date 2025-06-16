@@ -13,6 +13,7 @@
   "dependencies": {
     "@slack/web-api": "^7.9.2",
     "@types/dompurify": "^3.2.0",
+    "cache-manager": "^7.0.0",
     "dompurify": "^3.2.6",
     "drizzle-orm": "^0.44.2",
     "framer-motion": "^12.18.1",
@@ -20,6 +21,7 @@
     "iron-session": "^8.0.4",
     "jws": "^4.0.0",
     "lucide-react": "^0.514.0",
+    "make-fetch-happen": "^14.0.3",
     "next": "15.3.3",
     "next-auth": "^4.24.11",
     "node": "^24.2.0",
@@ -34,6 +36,7 @@
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tailwindcss/postcss": "^4.1.10",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/make-fetch-happen": "^10.0.4",
     "@types/node": "^20.19.1",
     "@types/pg": "^8.15.4",
     "@types/react": "^19.1.8",

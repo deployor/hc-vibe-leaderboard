@@ -93,7 +93,7 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
 
       // --- Emojis ---
       text = text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, name) => {
-        if (emojis && emojis[name] && emojis[name].startsWith('http')) {
+        if (emojis && emojis[name]) {
           return `<img src="/api/slack/emoji/${encodeURIComponent(name)}" alt="${name}" class="inline-emoji" />`;
         }
         // Placeholder spinner
