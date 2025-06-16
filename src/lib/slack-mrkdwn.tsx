@@ -183,4 +183,6 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
   }, [parsedHtml]);
 
   return <div dangerouslySetInnerHTML={{ __html: parsedHtml }} className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base" />;
-}; 
+};
+
+export const PureMrkdwnText = React.memo(MrkdwnText, (prev, next) => prev.children === next.children); 

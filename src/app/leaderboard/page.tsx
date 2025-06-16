@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { LucideIcon } from "lucide-react";
-import { MrkdwnText } from '@/lib/slack-mrkdwn';
+import { PureMrkdwnText as MrkdwnText } from '@/lib/slack-mrkdwn';
 import QuickLRU from 'quick-lru';
 
 declare global {
