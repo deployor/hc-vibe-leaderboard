@@ -83,4 +83,11 @@ export const users = pgTable("users", {
   avatarUrl: text("avatar_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const priorityChannels = pgTable("priority_channels", {
+  channelId: text("channel_id").primaryKey(),
+  channelName: text("channel_name").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }); 

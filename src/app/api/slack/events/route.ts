@@ -5,8 +5,11 @@ import { messages, optedOutUsers, userStats } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 import { publishHomeView } from "@/lib/app-home";
+import { conversationsHistory, conversationsReplies } from "@/lib/slack-token-cycler";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const convoHistory2Token = process.env.SLACK_TOKEN_CONVHISTORY2;
+const slackConvo2 = convoHistory2Token ? new WebClient(convoHistory2Token) : null;
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -49,9 +52,17 @@ export async function POST(req: NextRequest) {
         try {
           console.log(`Attempting to join channel ${channel.id}`);
           await slack.conversations.join({ channel: channel.id });
+          if (slackConvo2) {
+            try {
+              await slackConvo2.conversations.join({ channel: channel.id });
+              console.log(`ConvoHistory2 bot joined channel ${channel.id}`);
+            } catch (err) {
+              console.error(`ConvoHistory2 bot failed to join ${channel.id}:`, err);
+            }
+          }
           console.log(`Successfully joined channel ${channel.id}`);
 
-          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of upvote using :upvote: and :downvote: on messages. I'll be tallying them up on the leaderboard. You can check it out at https://vibe.deployor.dev.`;
+          const messageText = `Hey <@${channel.creator}>! I'm here to keep track of upvotes (:upvote:) and downvotes (:downvote:) on messages, then tally them on the leaderboard (https://vibe.deployor.dev).\n\nYou'll also see another helper bot join right after me – it's only here to read conversation history so I can avoid Slack rate-limit issues. Feel free to ignore it; it won't post anything.`;
 
           await slack.chat.postEphemeral({
             channel: channel.id,
@@ -324,7 +335,7 @@ export async function POST(req: NextRequest) {
           let parentUserName = null;
 
           if (isThreadReply) {
-            const threadHistory = await slack.conversations.replies({ 
+            const threadHistory = await conversationsReplies({ 
               channel, 
               ts: threadTs!,
               inclusive: true 
@@ -339,7 +350,7 @@ export async function POST(req: NextRequest) {
                         }
             
           } else {
-            const history = await slack.conversations.history({ channel, latest: ts, limit: 1, inclusive: true });
+            const history = await conversationsHistory({ channel, latest: ts, limit: 1, inclusive: true });
             messageData = history.messages?.[0];
           }
 

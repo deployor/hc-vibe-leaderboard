@@ -3,6 +3,8 @@ import { WebClient } from "@slack/web-api";
 import { verifySlackRequest } from "@/lib/slack";
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const convoHistory2Token = process.env.SLACK_TOKEN_CONVHISTORY2;
+const slackConvo2 = convoHistory2Token ? new WebClient(convoHistory2Token) : null;
 
 async function isUserChannelManager(userId: string, channelId: string): Promise<boolean> {
   try {
@@ -56,15 +58,29 @@ export async function POST(req: NextRequest) {
 
     if (botIsMember) {
       await slack.conversations.leave({ channel: channelId });
+      if (slackConvo2) {
+        try {
+          await slackConvo2.conversations.leave({ channel: channelId });
+        } catch (err) {
+          console.error(`ConvoHistory2 failed to leave ${channelId}:`, err);
+        }
+      }
       return NextResponse.json({
         response_type: "ephemeral",
-        text: "Success! I've left this channel. A channel manager can run this command again to have me rejoin.",
+        text: "Success! Both bots have left this channel. A channel manager can run this command again to have us rejoin.",
       });
     } else {
       await slack.conversations.join({ channel: channelId });
+      if (slackConvo2) {
+        try {
+          await slackConvo2.conversations.join({ channel: channelId });
+        } catch (err) {
+          console.error(`ConvoHistory2 failed to join ${channelId}:`, err);
+        }
+      }
       return NextResponse.json({
         response_type: "ephemeral",
-        text: "Welcome back! I've rejoined the channel.",
+        text: "Welcome back! Both bots have rejoined the channel.",
       });
     }
   } catch (error) {
