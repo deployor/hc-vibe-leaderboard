@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getSlackClient } from '@/lib/slack-client';
 import { getSession } from '@/lib/session';
+import { RedisCache } from '@/lib/redis-cache';
+
+// Define the type for Slack user
+interface SlackUser {
+  id: string;
+  name: string;
+  real_name?: string;
+  profile?: {
+    display_name?: string;
+    real_name?: string;
+  };
+}
 
 export async function GET() {
   // Check if user is authenticated
@@ -10,6 +22,12 @@ export async function GET() {
   }
 
   try {
+    // First, try to get cached users
+    const cachedUsers = await RedisCache.getCachedUsers();
+    if (cachedUsers) {
+      return NextResponse.json(cachedUsers);
+    }
+
     const slack = await getSlackClient();
     
     // Fetch all users
@@ -18,15 +36,20 @@ export async function GET() {
     });
     
     // Transform user data to include only necessary fields
-    const users = response.members?.map(user => ({
-      id: user.id,
-      name: user.name,
+    const users: SlackUser[] = response.members?.filter(user => 
+      user.id && user.name
+    ).map(user => ({
+      id: user.id!,
+      name: user.name!,
       real_name: user.real_name,
       profile: {
         display_name: user.profile?.display_name,
         real_name: user.profile?.real_name
       }
     })) || [];
+    
+    // Cache the users
+    await RedisCache.cacheUsers(users);
     
     console.log(`Fetched ${users.length} users`);
     

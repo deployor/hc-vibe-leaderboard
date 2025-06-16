@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSlackClient } from '@/lib/slack-client';
 import { getSession } from '@/lib/session';
+import { RedisCache } from '@/lib/redis-cache';
 
 export async function GET() {
   // Check if user is authenticated
@@ -10,6 +11,12 @@ export async function GET() {
   }
 
   try {
+    // First, try to get cached emojis
+    const cachedEmojis = await RedisCache.getCachedEmojis();
+    if (cachedEmojis) {
+      return NextResponse.json(cachedEmojis);
+    }
+
     const slack = await getSlackClient();
     
     // Fetch custom emojis
@@ -25,6 +32,9 @@ export async function GET() {
           customEmojis[name] = url;
         }
       }
+      
+      // Cache the emojis
+      await RedisCache.cacheEmojis(customEmojis);
       
       console.log(`Fetched ${Object.keys(customEmojis).length} custom emojis`);
     } else {
