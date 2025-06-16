@@ -2,7 +2,7 @@ import { WebClient } from "@slack/web-api";
 import { NextResponse, NextRequest } from "next/server";
 import { LRUCache } from 'lru-cache';
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const slack = new WebClient(process.env.SLACK_MRKDWN_BOT_TOKEN || process.env.SLACK_BOT_TOKEN);
 
 interface UserInfo {
   id: string;

@@ -1,7 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import { NextResponse } from "next/server";
 
-const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
+const slack = new WebClient(process.env.SLACK_MRKDWN_BOT_TOKEN || process.env.SLACK_BOT_TOKEN);
 
 // In-memory cache for emojis
 let emojiCache: Record<string, string> | null = null;
