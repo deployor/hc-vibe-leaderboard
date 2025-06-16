@@ -118,18 +118,27 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
   const [users, setUsers] = useState<Record<string, SlackUser>>({});
   const [parsedContent, setParsedContent] = useState<string>(children);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSlackData = async () => {
       try {
         setIsLoading(true);
+        setFetchError(null);
+
         // Fetch custom emojis from Slack Web API
         const emojiResponse = await fetch('/api/slack/emojis');
+        if (!emojiResponse.ok) {
+          throw new Error(`Emoji fetch failed: ${emojiResponse.status}`);
+        }
         const customEmojis = await emojiResponse.json();
         setEmojis(customEmojis);
 
         // Fetch users from Slack Web API
         const usersResponse = await fetch('/api/slack/users');
+        if (!usersResponse.ok) {
+          throw new Error(`Users fetch failed: ${usersResponse.status}`);
+        }
         const userList = await usersResponse.json();
         
         // Convert users to a dictionary for easy lookup
@@ -141,6 +150,7 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
         setUsers(userDict);
       } catch (error) {
         console.error('Failed to fetch Slack data:', error);
+        setFetchError(error instanceof Error ? error.message : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
@@ -160,6 +170,24 @@ export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
       }
     }
   }, [children, emojis, users, isLoading]);
+
+  // If there's a fetch error, render the original text with an error indicator
+  if (fetchError) {
+    return (
+      <div 
+        className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base"
+        title={`Failed to fetch Slack data: ${fetchError}`}
+      >
+        {children}
+        <span 
+          className="ml-2 text-xs text-red-500 bg-red-500/10 px-2 py-1 rounded"
+          title={fetchError}
+        >
+          ⚠️ Formatting may be limited
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div 

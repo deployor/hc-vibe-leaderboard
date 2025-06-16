@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getSlackClient } from '@/lib/slack-client';
+import { getSession } from '@/lib/session';
 
 export async function GET() {
+  // Check if user is authenticated
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const slack = await getSlackClient();
     
@@ -27,7 +34,7 @@ export async function GET() {
     return NextResponse.json(customEmojis);
   } catch (error) {
     console.error('Failed to fetch Slack emojis:', error);
-    return NextResponse.json({}, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch emojis' }, { status: 500 });
   }
 }
 
