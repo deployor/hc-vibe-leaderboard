@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { LucideIcon } from "lucide-react";
+import { MrkdwnText } from '@/lib/slack-mrkdwn';
 
 declare global {
   interface Window {
@@ -454,15 +455,13 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
                 </span>
               </div>
               <p className="text-slate-400 text-sm italic line-clamp-2">
-                &ldquo;{msg.parentContent}&rdquo;
+                <MrkdwnText>{`"${msg.parentContent}"`}</MrkdwnText>
               </p>
             </div>
           )}
           
           <div className="relative">
-            <p className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base">
-              {msg.content}
-            </p>
+            <MrkdwnText>{msg.content}</MrkdwnText>
           </div>
         </div>
         

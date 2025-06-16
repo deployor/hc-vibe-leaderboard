@@ -36,3 +36,62 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Slack mrkdwn styling */
+.mention {
+  font-weight: bold;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.mention-here {
+  background-color: #36c5f0;
+  color: white;
+}
+
+.mention-channel {
+  background-color: #2eb67d;
+  color: white;
+}
+
+.mention-everyone {
+  background-color: #ecb22e;
+  color: white;
+}
+
+.mention-user {
+  background-color: #e01e5a;
+  color: white;
+}
+
+.inline-emoji {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+code {
+  background-color: #f4f4f4;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+pre {
+  background-color: #f4f4f4;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+a {
+  color: #1264a3;
+  text-decoration: underline;
+}
+
+del {
+  text-decoration: line-through;
+  color: #666;
+}
