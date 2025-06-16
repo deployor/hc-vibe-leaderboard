@@ -3,150 +3,136 @@
 import React, { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 
-// Emoji type definition
-interface SlackEmoji {
-  short_names: string[];
-  image: string;
+interface SlackUser {
+  id: string;
+  name: string;
+  profile?: {
+    display_name?: string;
+  };
 }
 
-// Fetch emoji from Slack's emoji list
-async function fetchSlackEmoji(): Promise<SlackEmoji[]> {
+interface SlackChannel {
+  id: string;
+  name: string;
+}
+
+// --- Caching for fetched data ---
+const cache = {
+  emojis: null as Record<string, string> | null,
+  users: new Map<string, SlackUser>(),
+  channels: new Map<string, SlackChannel>(),
+};
+
+// --- API Fetching Functions ---
+async function fetchEmojis() {
+  if (cache.emojis) return cache.emojis;
   try {
-    const response = await fetch('https://raw.githubusercontent.com/iamcal/emoji-data/master/emoji.json');
-    return await response.json();
+    const res = await fetch('/api/slack/emojis');
+    if (!res.ok) throw new Error('Failed to fetch emojis');
+    const emojis = await res.json();
+    cache.emojis = emojis;
+    return emojis;
   } catch (error) {
-    console.error('Failed to fetch Slack emojis', error);
-    return [];
+    console.error(error);
+    return {};
   }
 }
 
-// Mrkdwn parsing utility
-export class SlackMrkdwn {
-  private static emojiCache: SlackEmoji[] = [];
-  private static emojiPromise: Promise<SlackEmoji[]> | null = null;
-
-  // Escape HTML special characters
-  private static escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  // Fetch and cache emojis
-  private static async getEmojis(): Promise<SlackEmoji[]> {
-    if (this.emojiPromise) return this.emojiPromise;
-    
-    this.emojiPromise = fetchSlackEmoji().then(emojis => {
-      this.emojiCache = emojis;
-      return emojis;
-    });
-
-    return this.emojiPromise;
-  }
-
-  // Convert emoji to image (synchronous version)
-  private static convertEmoji(emoji: string, emojis: SlackEmoji[]): string {
-    const emojiData = emojis.find(
-      e => e.short_names.includes(emoji.replace(/:/g, ''))
-    );
-
-    if (emojiData) {
-      return `<img src="https://raw.githubusercontent.com/iamcal/emoji-data/master/img-apple-64/${emojiData.image}" alt="${emoji}" class="inline-emoji" />`;
-    }
-
-    return emoji;
-  }
-
-  // Parse mrkdwn text (synchronous version)
-  static parse(text: string, emojis: SlackEmoji[] = []): string {
-    // Escape HTML special characters first
-    let parsedText = this.escapeHtml(text);
-
-    // Replace special mentions
-    parsedText = parsedText.replace(
-      /<!(\w+)>/g, 
-      (match, mention) => {
-        const mentionMap: {[key: string]: string} = {
-          'here': '<span class="mention mention-here">@here</span>',
-          'channel': '<span class="mention mention-channel">@channel</span>',
-          'everyone': '<span class="mention mention-everyone">@everyone</span>'
-        };
-        return mentionMap[mention] || match;
-      }
-    );
-
-    // Parse user mentions
-    parsedText = parsedText.replace(
-      /<@(\w+)>/g, 
-      (match, userId) => `<span class="mention mention-user">@${userId}</span>`
-    );
-
-    // Parse channel mentions
-    parsedText = parsedText.replace(
-      /<#(\w+)>/g, 
-      (match, channelId) => `<span class="mention mention-channel">#${channelId}</span>`
-    );
-
-    // Parse links
-    parsedText = parsedText.replace(
-      /<(https?:\/\/[^\s|]+)(\|([^>]+))?>/g, 
-      (match, url, _, linkText) => 
-        `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText || url}</a>`
-    );
-
-    // Parse basic formatting
-    parsedText = parsedText
-      .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')  // Bold
-      .replace(/_([^_]+)_/g, '<em>$1</em>')  // Italic
-      .replace(/~([^~]+)~/g, '<del>$1</del>')  // Strikethrough
-      .replace(/`([^`]+)`/g, '<code>$1</code>')  // Inline code
-      .replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>')  // Code block
-      .replace(/\n/g, '<br/>');  // Line breaks
-
-    // Parse emojis
-    const emojiRegex = /:\w+:/g;
-    const emojiMatches = parsedText.match(emojiRegex) || [];
-    
-    for (const emoji of emojiMatches) {
-      const emojiImage = this.convertEmoji(emoji, emojis);
-      parsedText = parsedText.replace(emoji, emojiImage);
-    }
-
-    // Sanitize the final HTML
-    return DOMPurify.sanitize(parsedText);
+async function fetchUserInfo(userId: string) {
+  if (cache.users.has(userId)) return cache.users.get(userId);
+  try {
+    const res = await fetch(`/api/slack/users/${userId}`);
+    if (!res.ok) return null;
+    const user = await res.json();
+    cache.users.set(userId, user);
+    return user;
+  } catch {
+    return null;
   }
 }
 
-// Client-side component for rendering mrkdwn
+// --- Main Component ---
 export const MrkdwnText: React.FC<{ children: string }> = ({ children }) => {
-  const [emojis, setEmojis] = useState<SlackEmoji[]>([]);
-  const [parsedContent, setParsedContent] = useState<string>('');
+  const [parsedHtml, setParsedHtml] = useState('');
 
   useEffect(() => {
-    const fetchEmojis = async () => {
-      try {
-        const response = await fetch('https://raw.githubusercontent.com/iamcal/emoji-data/master/emoji.json');
-        const emojiData = await response.json();
-        setEmojis(emojiData);
-      } catch (error) {
-        console.error('Failed to fetch emojis', error);
+    let isMounted = true;
+    
+    async function parseMrkdwn() {
+      if (!children) {
+        setParsedHtml('');
+        return;
       }
-    };
-    fetchEmojis();
-  }, []);
+
+      const emojis = await fetchEmojis();
+      let text = children;
+
+      // --- HTML Entity Encoding ---
+      text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // --- Emojis ---
+      if (emojis) {
+        text = text.replace(/:([a-zA-Z0-9_+-]+):/g, (match, emojiName) => {
+          const emojiUrl = emojis[emojiName];
+          if (emojiUrl && emojiUrl.startsWith('http')) {
+            return `<img src="${emojiUrl}" alt="${emojiName}" class="inline-emoji" />`;
+          } else if (emojiUrl) { // alias
+            return `:${emojiUrl.replace('alias:', '')}:`;
+          }
+          return match;
+        });
+      }
+
+      // --- Basic Formatting ---
+      text = text
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .replace(/_(.*?)_/g, '<em>$1</em>')
+        .replace(/~(.*?)~/g, '<del>$1</del>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/```(.*?)```/gs, '<pre><code>$1</code></pre>')
+        .replace(/\n/g, '<br />');
+        
+      // --- Links ---
+      text = text.replace(
+        /&lt;(http[^|]+)\|([^>]+)&gt;/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>'
+      );
+      text = text.replace(
+        /&lt;(http[^>]+)&gt;/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+      );
+
+      // --- Mentions (placeholders) ---
+      text = text.replace(/&lt;@([A-Z0-9]+)&gt;/g, `<span class="mention mention-user" data-user-id="$1">@$1</span>`);
+      text = text.replace(/&lt;#([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-channel" data-channel-id="$1">#$2</span>`);
+      text = text.replace(/&lt;!subteam\^([A-Z0-9]+)\|?([^>]*)&gt;/g, `<span class="mention mention-group" data-group-id="$1">@$2</span>`);
+      text = text.replace(/&lt;!(here|channel|everyone)\|?([^>]*)&gt;/g, `<span class="mention mention-special">@$1</span>`);
+      
+      if (isMounted) {
+        setParsedHtml(DOMPurify.sanitize(text));
+      }
+    }
+
+    parseMrkdwn();
+
+    return () => { isMounted = false; };
+  }, [children]);
 
   useEffect(() => {
-    if (emojis.length > 0) {
-      const parsed = SlackMrkdwn.parse(children, emojis);
-      setParsedContent(parsed);
-    }
-  }, [children, emojis]);
+    if (!parsedHtml) return;
 
-  return (
-    <div 
-      dangerouslySetInnerHTML={{ __html: parsedContent }} 
-      className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base"
-    />
-  );
+    // --- Resolve User Mentions ---
+    const userMentions = document.querySelectorAll<HTMLElement>('.mention[data-user-id]');
+    userMentions.forEach(async (el) => {
+      const userId = el.dataset.userId;
+      if (userId) {
+        const user = await fetchUserInfo(userId);
+        if (user) {
+          el.textContent = `@${user.profile?.display_name || user.name}`;
+        }
+      }
+    });
+  }, [parsedHtml]);
+
+  return <div dangerouslySetInnerHTML={{ __html: parsedHtml }} className="text-slate-200 whitespace-pre-wrap break-words leading-relaxed text-base" />;
 }; 
