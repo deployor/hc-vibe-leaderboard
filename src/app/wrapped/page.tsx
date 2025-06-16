@@ -417,9 +417,22 @@ export default function WrappedPage() {
           className="text-3xl md:text-4xl text-slate-300 font-medium"
         />
         <div className="mt-8 flex gap-4 text-6xl">
-          {["😂", "😭", "❤️", "⭐", "🔥", "🥬", "💯", "🫂", "💀", "👀", "🎉", "📣"].map((emoji) => (
-            <motion.span 
-              key={emoji} 
+          {[
+            "yay.gif", 
+            "heavysob.png", 
+            "ohneheart.png", 
+            "star.png", 
+            "fire.png", 
+            "leeks.png", 
+            "real.png", 
+            "same.png", 
+            "skulk.png", 
+            "earthquakyeyes.gif", 
+            "ultrafastparrot.gif", 
+            "upvote.png"
+          ].map((emojiFile) => (
+            <motion.div 
+              key={emojiFile} 
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ 
                 scale: 1, 
@@ -430,9 +443,16 @@ export default function WrappedPage() {
                 stiffness: 300, 
                 damping: 10 
               }}
+              className="w-16 h-16"
             >
-              {emoji}
-            </motion.span>
+              <Image 
+                src={`/emojis/${emojiFile}`} 
+                alt="Reaction emoji" 
+                width={64} 
+                height={64} 
+                className="object-contain"
+              />
+            </motion.div>
           ))}
         </div>
       </motion.div>
@@ -452,23 +472,29 @@ export default function WrappedPage() {
                   className="flex flex-col items-center justify-center bg-slate-900/50 p-4 rounded-xl border border-slate-700/50"
                 >
                   <div className="text-4xl mb-2">
-                    {
-                      {
-                        yay: "🎉",
-                        sob: "😭",
-                        heart: "❤️",
-                        star: "⭐",
-                        fire: "🔥",
-                        leek: "🥬",
-                        real: "💯",
-                        same: "🫂",
-                        skull: "💀",
-                        eyes: "👀",
-                        yipee: "🤪",
-                        pingGood: "👍",
-                        pingBad: "👎"
-                      }[reaction]
-                    }
+                    <Image 
+                      src={`/emojis/${
+                        {
+                          yay: "yay.gif",
+                          sob: "heavysob.png",
+                          heart: "ohneheart.png",
+                          star: "star.png",
+                          fire: "fire.png",
+                          leek: "leeks.png",
+                          real: "real.png",
+                          same: "same.png",
+                          skull: "skulk.png",
+                          eyes: "earthquakyeyes.gif",
+                          yipee: "ultrafastparrot.gif",
+                          pingGood: "upvote.png",
+                          pingBad: "downvote.png"
+                        }[reaction]
+                      }`}
+                      alt={`${reaction} reaction`}
+                      width={64}
+                      height={64}
+                      className="object-contain"
+                    />
                   </div>
                   <div className="text-2xl font-bold text-blue-400">
                     <CountUp value={reactionCount} />
