@@ -96,17 +96,18 @@ async function executeWithTokenCycling<T>(
     // 1. Try priority token first if applicable
     if (shouldUsePriorityFirst && priorityClient) {
       try {
+        console.log(`[slack-cycler] Using priority token for channel ${channelId ?? "?"}`);
         return await apiCall(priorityClient);
       } catch (error: unknown) {
         const rateInfo = isRateLimited(error);
         if (rateInfo) {
           const waitMs = rateInfo.retryAfter ?? 1000;
           console.warn(
-            `Rate limited on priority token. Waiting ${waitMs}ms before falling back to pooled tokens.`
+            `[slack-cycler] Rate limited on priority token (retry-after ${waitMs}ms). Falling back to pooled tokens.`
           );
           await new Promise(res => setTimeout(res, waitMs));
         } else {
-          console.error("Priority token failed, falling back to pooled tokens:", error);
+          console.error("[slack-cycler] Priority token failed:", error);
         }
       }
     }
@@ -118,6 +119,7 @@ async function executeWithTokenCycling<T>(
       currentClientIndex = (currentClientIndex + 1) % clients.length;
 
       try {
+        console.log(`[slack-cycler] Using pooled token index ${clientIndexForLogging}`);
         return await apiCall(client);
       } catch (error: unknown) {
         const rateInfo = isRateLimited(error);
@@ -125,18 +127,18 @@ async function executeWithTokenCycling<T>(
         if (rateInfo) {
           const waitMs = rateInfo.retryAfter ?? 1000;
           console.warn(
-            `Rate limited on token index ${clientIndexForLogging}. Retrying with next token after ${waitMs}ms.`
+            `[slack-cycler] Rate limited on token index ${clientIndexForLogging}. Waiting ${waitMs}ms then switching to index ${currentClientIndex}.`
           );
           await new Promise(resolve => setTimeout(resolve, waitMs));
         } else {
           const err = error as { data?: { error?: string } };
           if (err?.data?.error) {
             console.error(
-              `Slack API error on token index ${clientIndexForLogging}: ${err.data.error}. Trying next token.`
+              `[slack-cycler] Slack API error on token index ${clientIndexForLogging}: ${err.data.error}. Switching to index ${currentClientIndex}.`
             );
           } else {
             console.error(
-              `Unexpected error on token index ${clientIndexForLogging}:`,
+              `[slack-cycler] Unexpected error on token index ${clientIndexForLogging}. Next token index ${currentClientIndex}.`,
               error
             );
           }
@@ -146,13 +148,13 @@ async function executeWithTokenCycling<T>(
 
     if (attempt < maxRetries) {
       console.log(
-        `All tokens failed for attempt ${attempt}/${maxRetries}. Waiting ${retryDelay / 1000}s before retrying.`
+        `[slack-cycler] All tokens failed for attempt ${attempt}/${maxRetries}. Retrying in ${retryDelay / 1000}s.`
       );
       await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
   }
 
-  throw new Error(`All Slack API call attempts failed after ${maxRetries} rounds.`);
+  throw new Error(`[slack-cycler] All Slack API call attempts failed after ${maxRetries} rounds.`);
 }
 
 export const conversationsHistory = (
