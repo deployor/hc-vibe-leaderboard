@@ -23,15 +23,17 @@ export async function GET(req: NextRequest) {
   );
   const newUsers24h = newUsersRes[0]?.count ?? 0;
 
-  // Total reactions tracked (sum of total_reactions column)
+  // Total reactions tracked (sum of every reaction column)
+  const sumExpr = sql`upvotes + downvotes + yay + sob + heart + star + fire + leek + real + same + skull + eyes + yipee + ping_good + ping_bad`;
+
   const totalReactionsRes = await db.execute<{ sum: number }>(
-    sql`SELECT COALESCE(SUM(total_reactions),0)::int AS sum FROM messages`
+    sql`SELECT COALESCE(SUM(${sumExpr}),0)::int AS sum FROM messages`
   );
   const totalReactions = totalReactionsRes[0]?.sum ?? 0;
 
   // New reactions in last 24h
   const newReactionsRes = await db.execute<{ sum: number }>(
-    sql`SELECT COALESCE(SUM(total_reactions),0)::int AS sum FROM messages WHERE created_at >= NOW() - INTERVAL '24 hours'`
+    sql`SELECT COALESCE(SUM(${sumExpr}),0)::int AS sum FROM messages WHERE created_at >= NOW() - INTERVAL '24 hours'`
   );
   const newReactions24h = newReactionsRes[0]?.sum ?? 0;
 
