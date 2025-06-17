@@ -1,8 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
 
-export async function GET() {
+const TOKEN = process.env.METRICS_BEARER_TOKEN || "beans";
+
+export async function GET(req: NextRequest) {
+  // Simple Bearer-token auth
+  const auth = req.headers.get("authorization");
+  if (auth !== `Bearer ${TOKEN}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   // Total users
   const totalUsersRes = await db.execute<{ count: number }>(
     sql`SELECT COUNT(*)::int AS count FROM users`
