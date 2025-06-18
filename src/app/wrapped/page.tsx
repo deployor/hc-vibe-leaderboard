@@ -429,7 +429,9 @@ export default function WrappedPage() {
             "skulk.png", 
             "earthquakyeyes.gif", 
             "ultrafastparrot.gif", 
-            "upvote.png"
+            "upvote.png",
+            "mad_ping_sock.png",
+            "happy_ping_sock.png"
           ].map((emojiFile) => (
             <motion.div 
               key={emojiFile} 
@@ -486,8 +488,8 @@ export default function WrappedPage() {
                           skull: "skulk.png",
                           eyes: "earthquakyeyes.gif",
                           yipee: "ultrafastparrot.gif",
-                          pingGood: "upvote.png",
-                          pingBad: "downvote.png"
+                          pingGood: "happy_ping_sock.png",
+                          pingBad: "mad_ping_sock.png"
                         }[reaction]
                       }`}
                       alt={`${reaction} reaction`}
