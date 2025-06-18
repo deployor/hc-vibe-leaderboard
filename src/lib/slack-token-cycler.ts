@@ -1,12 +1,13 @@
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
-import { priorityChannels as priorityChannelsTable } from "@/db/schema";
+import { priorityChannels as priorityChannelsTable, messages } from "@/db/schema";
 import type { 
   ConversationsHistoryResponse, 
   ConversationsHistoryArguments,
   ConversationsRepliesResponse,
   ConversationsRepliesArguments,
 } from "@slack/web-api";
+import { eq } from "drizzle-orm";
 
 // Gather numbered tokens: SLACK_TOKEN_CONVHISTORY1, 2, 3, ...
 const getTokens = (): string[] => {
@@ -80,6 +81,36 @@ const isRateLimited = (error: unknown): { retryAfter?: number } | null => {
   return null;
 };
 
+// Lightweight in-memory cache for channelId -> channelName lookups
+const channelNameCache = new Map<string, string>();
+
+/**
+ * Attempt to resolve a channel name for a given channel ID without invoking the Slack API.
+ * The lookup is performed against the local database (messages table) and the result is
+ * cached for the remainder of the process lifetime.
+ */
+async function getChannelName(channelId?: string): Promise<string | null> {
+  if (!channelId) return null;
+  if (channelNameCache.has(channelId)) return channelNameCache.get(channelId)!;
+
+  try {
+    const [row] = await db
+      .select({ channelName: messages.channelName })
+      .from(messages)
+      .where(eq(messages.channelId, channelId))
+      .limit(1);
+
+    if (row?.channelName) {
+      channelNameCache.set(channelId, row.channelName);
+      return row.channelName;
+    }
+  } catch (err) {
+    console.error("[slack-cycler] Failed to fetch channel name from DB:", err);
+  }
+
+  return null;
+}
+
 async function executeWithTokenCycling<T>(
   apiCall: (client: WebClient) => Promise<T>,
   channelId?: string,
@@ -102,8 +133,10 @@ async function executeWithTokenCycling<T>(
         const rateInfo = isRateLimited(error);
         if (rateInfo) {
           const waitMs = rateInfo.retryAfter ?? 1000;
+          const channelName = await getChannelName(channelId);
+          const channelLabel = channelName ? `#${channelName} (${channelId})` : channelId ?? "?";
           console.warn(
-            `[slack-cycler] Rate limited on priority token (retry-after ${waitMs}ms). Falling back to pooled tokens.`
+            `[slack-cycler] Rate limited on priority token for channel ${channelLabel} (retry-after ${waitMs}ms). Falling back to pooled tokens.`
           );
           await new Promise(res => setTimeout(res, waitMs));
         } else {
@@ -126,8 +159,10 @@ async function executeWithTokenCycling<T>(
 
         if (rateInfo) {
           const waitMs = rateInfo.retryAfter ?? 1000;
+          const channelName = await getChannelName(channelId);
+          const channelLabel = channelName ? `#${channelName} (${channelId})` : channelId ?? "?";
           console.warn(
-            `[slack-cycler] Rate limited on token index ${clientIndexForLogging}. Waiting ${waitMs}ms then switching to index ${currentClientIndex}.`
+            `[slack-cycler] Rate limited on token index ${clientIndexForLogging} for channel ${channelLabel}. Waiting ${waitMs}ms then switching to index ${currentClientIndex}.`
           );
           await new Promise(resolve => setTimeout(resolve, waitMs));
         } else {
@@ -157,14 +192,104 @@ async function executeWithTokenCycling<T>(
   throw new Error(`[slack-cycler] All Slack API call attempts failed after ${maxRetries} rounds.`);
 }
 
+// ---------------------------------------------------------------------------
+// Rate-limit handling helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Tracks in-flight API calls keyed by an identifier so that concurrent callers
+ * can share the same Promise instead of issuing duplicate requests.
+ */
+const pendingHistoryCalls = new Map<string, Promise<ConversationsHistoryResponse>>();
+const pendingRepliesCalls = new Map<string, Promise<ConversationsRepliesResponse>>();
+
+/**
+ * Remembers when a channel is allowed to make the next conversations.history call.
+ * Keyed by channelId, value is a unix timestamp (ms) after which we may try again.
+ */
+const channelHistoryRateLimitUntil = new Map<string, number>();
+
+/** Wait until the stored rate-limit for the channel has expired (if any). */
+async function waitForChannelHistoryQuota(channelId?: string) {
+  if (!channelId) return;
+  const waitUntil = channelHistoryRateLimitUntil.get(channelId);
+  if (waitUntil && Date.now() < waitUntil) {
+    const sleepMs = waitUntil - Date.now();
+    if (sleepMs > 0) await new Promise(res => setTimeout(res, sleepMs));
+  }
+}
+
+function markChannelHistoryRateLimited(channelId: string | undefined, retryAfterMs: number | undefined) {
+  if (!channelId) return;
+  const until = Date.now() + (retryAfterMs ?? 1000);
+  const current = channelHistoryRateLimitUntil.get(channelId) ?? 0;
+  // Only extend the window; never shorten it.
+  if (until > current) channelHistoryRateLimitUntil.set(channelId, until);
+}
+
 export const conversationsHistory = (
   args: ConversationsHistoryArguments
 ): Promise<ConversationsHistoryResponse> => {
-  return executeWithTokenCycling(client => client.conversations.history(args), args.channel);
+  // Build a simple deterministic key for deduplication.
+  const key = `hist:${args.channel}:${args.latest ?? ""}:${args.oldest ?? ""}:${args.ts ?? ""}:${args.limit ?? ""}`;
+
+  if (pendingHistoryCalls.has(key)) {
+    return pendingHistoryCalls.get(key)!;
+  }
+
+  const promise = (async () => {
+    await waitForChannelHistoryQuota(args.channel);
+
+    try {
+      const res = await executeWithTokenCycling(
+        client => client.conversations.history(args),
+        args.channel
+      );
+      return res;
+    } catch (err) {
+      const rateInfo = isRateLimited(err);
+      if (rateInfo) {
+        markChannelHistoryRateLimited(args.channel, rateInfo.retryAfter);
+      }
+      throw err;
+    } finally {
+      pendingHistoryCalls.delete(key);
+    }
+  })();
+
+  pendingHistoryCalls.set(key, promise);
+  return promise;
 };
 
 export const conversationsReplies = (
   args: ConversationsRepliesArguments
 ): Promise<ConversationsRepliesResponse> => {
-  return executeWithTokenCycling(client => client.conversations.replies(args), args.channel);
+  const key = `repl:${args.channel}:${args.ts ?? ""}`;
+
+  if (pendingRepliesCalls.has(key)) {
+    return pendingRepliesCalls.get(key)!;
+  }
+
+  const promise = (async () => {
+    await waitForChannelHistoryQuota(args.channel);
+
+    try {
+      const res = await executeWithTokenCycling(
+        client => client.conversations.replies(args),
+        args.channel
+      );
+      return res;
+    } catch (err) {
+      const rateInfo = isRateLimited(err);
+      if (rateInfo) {
+        markChannelHistoryRateLimited(args.channel, rateInfo.retryAfter);
+      }
+      throw err;
+    } finally {
+      pendingRepliesCalls.delete(key);
+    }
+  })();
+
+  pendingRepliesCalls.set(key, promise);
+  return promise;
 }; 
