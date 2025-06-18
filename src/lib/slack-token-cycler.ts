@@ -231,7 +231,7 @@ export const conversationsHistory = (
   args: ConversationsHistoryArguments
 ): Promise<ConversationsHistoryResponse> => {
   // Build a simple deterministic key for deduplication.
-  const key = `hist:${args.channel}:${args.latest ?? ""}:${args.oldest ?? ""}:${args.ts ?? ""}:${args.limit ?? ""}`;
+  const key = `hist:${args.channel}:${args.latest ?? ""}:${args.oldest ?? ""}:${args.inclusive ?? ""}:${args.limit ?? ""}`;
 
   if (pendingHistoryCalls.has(key)) {
     return pendingHistoryCalls.get(key)!;
