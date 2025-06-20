@@ -28,6 +28,9 @@ export async function GET(req: NextRequest) {
   if (filter === "day") {
     const dayAgo = new Date(now.setDate(now.getDate() - 1));
     where = and(hasEngagement, gt(messages.createdAt, dayAgo));
+  } else if (filter === "week") {
+    const weekAgo = new Date(new Date().setDate(now.getDate() - 7));
+    where = and(hasEngagement, gt(messages.createdAt, weekAgo));
   } else if (filter === "month") {
     const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
     where = and(hasEngagement, gt(messages.createdAt, monthAgo));

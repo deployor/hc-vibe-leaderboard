@@ -43,11 +43,9 @@ export const messages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (messages) => {
-    return {
-      messageTsIndex: uniqueIndex("message_ts_idx").on(messages.messageTs),
-    };
-  }
+  (messages) => [
+    uniqueIndex("message_ts_idx").on(messages.messageTs),
+  ]
 );
 
 export const optedOutUsers = pgTable("opted_out_users", {
@@ -91,3 +89,4 @@ export const priorityChannels = pgTable("priority_channels", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }); 
+

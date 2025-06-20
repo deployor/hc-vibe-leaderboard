@@ -421,7 +421,7 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
                     {getRelativeTime(new Date(msg.createdAt))}
                   </p>
                   
-                  <div className="absolute left-0 top-full mt-2 w-64 p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
+                  <div className="absolute left-0 top-full mt-2 w-max p-3 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
                     <div className="text-white font-medium">
                       {new Date(msg.createdAt).toLocaleString(undefined, {
                         weekday: 'long',
@@ -757,6 +757,7 @@ export default function LeaderboardPage() {
             {/* Time Filters */}
             <div className="flex justify-center gap-4 flex-wrap">
               <FilterButton label="Day" icon={Calendar} filter={filter} setFilter={setFilter} />
+              <FilterButton label="Week" icon={Calendar} filter={filter} setFilter={setFilter} />
               <FilterButton label="Month" icon={Calendar} filter={filter} setFilter={setFilter} />
               <FilterButton label="Year" icon={TrendingUp} filter={filter} setFilter={setFilter} />
               <FilterButton label="All Time" icon={Globe} filter={filter} setFilter={setFilter} />
