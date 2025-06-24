@@ -6,6 +6,7 @@ import {
   timestamp,
   uniqueIndex,
   boolean,
+  json,
 } from "drizzle-orm/pg-core";
 
 export const messages = pgTable(
@@ -35,11 +36,15 @@ export const messages = pgTable(
     pingGood: integer("ping_good").default(0).notNull(),
     pingBad: integer("ping_bad").default(0).notNull(),
     totalReactions: integer("total_reactions").default(0).notNull(),
+    // JSON field for all other reactions not tracked individually
+    otherReactions: json("other_reactions").default({}).notNull(),
     // Thread support fields
     threadTs: text("thread_ts"), // null for regular messages, parent message timestamp for threaded messages
     isThreadReply: boolean("is_thread_reply").default(false).notNull(),
     parentContent: text("parent_content"), // content of the parent message for context
     parentUserName: text("parent_user_name"), // username of parent message author
+    // Indicates if this is a placeholder record (only has basic info from reaction event)
+    isPlaceholder: boolean("is_placeholder").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -71,6 +76,8 @@ export const userStats = pgTable("user_stats", {
   givenYipee: integer("given_yipee").default(0).notNull(),
   givenPingGood: integer("given_ping_good").default(0).notNull(),
   givenPingBad: integer("given_ping_bad").default(0).notNull(),
+  // JSON field for tracking all other reactions given by user
+  otherGivenReactions: json("other_given_reactions").default({}).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -88,5 +95,15 @@ export const priorityChannels = pgTable("priority_channels", {
   channelName: text("channel_name").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const reactionEvents = pgTable("reaction_events", {
+  id: serial("id").primaryKey(),
+  messageTs: text("message_ts").notNull(),
+  channelId: text("channel_id").notNull(),
+  userId: text("user_id").notNull(),
+  reactionName: text("reaction_name").notNull(),
+  eventType: text("event_type").notNull(), // 'added' or 'removed'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 }); 
 

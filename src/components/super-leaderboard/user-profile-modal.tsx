@@ -5,7 +5,23 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { MessageCard } from "./message-card";
 import { ReactionIcon } from "./reaction-icon";
 import { reactionMeta } from "./lib/reaction-meta";
-import { User, Message } from "./lib/types";
+import { Message } from "./lib/types";
+
+interface User {
+  userId: string;
+  userName: string;
+  avatarUrl?: string | null;
+  netScore: number;
+  messageCount: number;
+  lastMessageAt: string;
+  totalUpvotes: number; totalDownvotes: number; totalYay: number; totalSob: number; totalHeart: number; totalStar: number;
+  totalFire: number; totalLeek: number; totalReal: number; totalSame: number; totalSkull: number; totalEyes: number;
+  totalYipee: number; totalPingGood: number; totalPingBad: number;
+  givenUpvotes: number; givenDownvotes: number; givenYay: number; givenSob: number; givenHeart: number; givenStar: number;
+  givenFire: number; givenLeek: number; givenReal: number; givenSame: number; givenSkull: number; givenEyes: number;
+  givenYipee: number; givenPingGood: number; givenPingBad: number;
+  otherGivenReactions: Record<string, number>;
+}
 import { SortSelector } from "./sort-selector";
 
 const AvatarImage = ({ src, alt, fallbackInitial, size = 24 }: { src?: string | null; alt: string; fallbackInitial: string, size?: number }) => {
@@ -22,10 +38,11 @@ const AvatarImage = ({ src, alt, fallbackInitial, size = 24 }: { src?: string | 
     return <Image src={src} alt={alt} width={size*4} height={size*4} className="rounded-full ring-2 ring-slate-600/50" onError={() => setHasError(true)} unoptimized />;
 };
 
-const StatGrid = ({ title, stats }: { title: string, stats: Record<string, number> }) => (
+const StatGrid = ({ title, stats, otherReactions }: { title: string, stats: Record<string, number>, otherReactions?: Record<string, number> }) => (
     <div className="bg-slate-900/50 rounded-lg p-4">
         <h3 className="text-center font-semibold text-slate-300 mb-4">{title}</h3>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+            {/* Important reactions */}
             {Object.entries(stats).map(([key, count]) => {
                 const reactionName = key.replace(/^(total|given)/, '');
                 const metaKey = reactionName.charAt(0).toLowerCase() + reactionName.slice(1);
@@ -35,10 +52,25 @@ const StatGrid = ({ title, stats }: { title: string, stats: Record<string, numbe
                     return (
                         <div key={key} className="text-center">
                             <div className="flex items-center justify-center h-8">
-                                <ReactionIcon icon={meta.icon} name={meta.name} size={20} className="text-slate-400" />
+                                <ReactionIcon icon={meta.icon} name={meta.name} emoji={meta.emoji} size={20} className="text-slate-400" />
                             </div>
                             <div className="text-2xl font-bold text-white mt-1">{count}</div>
                             <div className="text-xs text-slate-500">{meta.name}</div>
+                        </div>
+                    );
+                }
+                return null;
+            })}
+            {/* Other reactions */}
+            {otherReactions && Object.entries(otherReactions).map(([emojiName, count]) => {
+                if (count > 0) {
+                    return (
+                        <div key={emojiName} className="text-center">
+                            <div className="flex items-center justify-center h-8">
+                                <ReactionIcon icon="" name={emojiName} emoji={emojiName} size={20} className="text-slate-400" />
+                            </div>
+                            <div className="text-2xl font-bold text-white mt-1">{count}</div>
+                            <div className="text-xs text-slate-500 capitalize">{emojiName}</div>
                         </div>
                     );
                 }
@@ -104,7 +136,7 @@ export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () =>
 
                 <div className="p-8 overflow-y-auto space-y-6">
                     <StatGrid title="Reactions Received" stats={receivedStats} />
-                    <StatGrid title="Reactions Given" stats={givenStats} />
+                    <StatGrid title="Reactions Given" stats={givenStats} otherReactions={user.otherGivenReactions as Record<string, number>} />
 
                     <div>
                         <div className="flex justify-between items-center mb-4">

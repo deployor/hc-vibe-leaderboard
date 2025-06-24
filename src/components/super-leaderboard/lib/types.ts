@@ -28,6 +28,8 @@ export interface Message {
     pingGood: number;
     pingBad: number;
     totalReactions: number;
+    otherReactions: Record<string, number>;
+    isPlaceholder: boolean;
 }
 
 export interface User {

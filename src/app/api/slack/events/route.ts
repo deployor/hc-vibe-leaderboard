@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
-import { messages, optedOutUsers, userStats } from "@/db/schema";
+import { messages, optedOutUsers, userStats, reactionEvents } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 import { publishHomeView } from "@/lib/app-home";
@@ -10,6 +10,58 @@ import { conversationsHistory, conversationsReplies } from "@/lib/slack-token-cy
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 const convoHistory2Token = process.env.SLACK_TOKEN_CONVHISTORY2;
 const slackConvo2 = convoHistory2Token ? new WebClient(convoHistory2Token) : null;
+
+// Define reaction categories
+const IMPORTANT_REACTIONS = {
+  upvotes: ["upvote", "this"],
+  downvotes: ["downvote"],
+  yay: ["yay"],
+  sob: ["sob", "heavysob", "pf", "noooo", "noo", "noooovanish"],
+  heart: ["ohneheart", "ohnelove", "blahaj-heart", "heart", "sparkling_heart"],
+  star: ["star"],
+  fire: ["fire"],
+  leek: ["leeks", "leek"],
+  real: ["real"],
+  same: ["same"],
+  skull: ["skulk", "skull", "skull-ios"],
+  eyes: ["earthquakyeyes", "eyes_wtf", "eyes", "Eyes"],
+  yipee: ["ultrafastparrot", "yipee"],
+  pingGood: ["happy_ping_sock"],
+  pingBad: ["mad_ping_sock"],
+};
+
+const getAllImportantReactions = () => {
+  return Object.values(IMPORTANT_REACTIONS).flat();
+};
+
+const getReactionCategory = (reaction: string): string | null => {
+  for (const [category, reactions] of Object.entries(IMPORTANT_REACTIONS)) {
+    if (reactions.includes(reaction)) {
+      return category;
+    }
+  }
+  return null;
+};
+
+interface ReactionCounts {
+  upvotes: number;
+  downvotes: number;
+  yay: number;
+  sob: number;
+  heart: number;
+  star: number;
+  fire: number;
+  leek: number;
+  real: number;
+  same: number;
+  skull: number;
+  eyes: number;
+  yipee: number;
+  pingGood: number;
+  pingBad: number;
+  otherReactions: Record<string, number>;
+  totalReactions: number;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -78,358 +130,365 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "reaction_added" || event.type === "reaction_removed") {
-      const { reaction, item, user: reactingUserId } = event;
-
-      const upvoteReactions = ["upvote", "this"];
-      const downvoteReactions = ["downvote"];
-      const yayReactions = ["yay"];
-      const sobReactions = ["sob", "heavysob", "pf", "noooo", "noo", "noooovanish"];
-      const heartReactions = ["ohneheart", "ohnelove", "blahaj-heart", "heart", "sparkling_heart"];
-      const starReactions = ["star"];
-      const fireReactions = ["fire"];
-      const leekReactions = ["leeks", "leek"];
-      const realReactions = ["real"];
-      const sameReactions = ["same"];
-      const skullReactions = ["skulk", "skull", "skull-ios"];
-      const eyesReactions = ["earthquakyeyes", "eyes_wtf", "eyes", "Eyes"];
-      const yipeeReactions = ["ultrafastparrot", "yipee"];
-      const pingGoodReactions = ["happy_ping_sock"];
-      const pingBadReactions = ["mad_ping_sock"];
-
-      const allTrackedReactions = [
-        ...upvoteReactions,
-        ...downvoteReactions,
-        ...yayReactions,
-        ...sobReactions,
-        ...heartReactions,
-        ...starReactions,
-        ...fireReactions,
-        ...leekReactions,
-        ...realReactions,
-        ...sameReactions,
-        ...skullReactions,
-        ...eyesReactions,
-        ...yipeeReactions,
-        ...pingGoodReactions,
-        ...pingBadReactions,
-      ];
-
-      if (!allTrackedReactions.includes(reaction)) {
-        return NextResponse.json({ ok: true });
-      }
-
-      if (reactingUserId) {
-        const isAdd = event.type === "reaction_added";
-        const change = isAdd ? 1 : -1;
-        
-        let givenUpvoteChange = 0;
-        let givenDownvoteChange = 0;
-        let givenYayChange = 0;
-        let givenSobChange = 0;
-        let givenHeartChange = 0;
-        let givenStarChange = 0;
-        let givenFireChange = 0;
-        let givenLeekChange = 0;
-        let givenRealChange = 0;
-        let givenSameChange = 0;
-        let givenSkullChange = 0;
-        let givenEyesChange = 0;
-        let givenYipeeChange = 0;
-        let givenPingGoodChange = 0;
-        let givenPingBadChange = 0;
-
-        if (upvoteReactions.includes(reaction)) givenUpvoteChange = change;
-        else if (downvoteReactions.includes(reaction)) givenDownvoteChange = change;
-        else if (yayReactions.includes(reaction)) givenYayChange = change;
-        else if (sobReactions.includes(reaction)) givenSobChange = change;
-        else if (heartReactions.includes(reaction)) givenHeartChange = change;
-        else if (starReactions.includes(reaction)) givenStarChange = change;
-        else if (fireReactions.includes(reaction)) givenFireChange = change;
-        else if (leekReactions.includes(reaction)) givenLeekChange = change;
-        else if (realReactions.includes(reaction)) givenRealChange = change;
-        else if (sameReactions.includes(reaction)) givenSameChange = change;
-        else if (skullReactions.includes(reaction)) givenSkullChange = change;
-        else if (eyesReactions.includes(reaction)) givenEyesChange = change;
-        else if (yipeeReactions.includes(reaction)) givenYipeeChange = change;
-        else if (pingGoodReactions.includes(reaction)) givenPingGoodChange = change;
-        else if (pingBadReactions.includes(reaction)) givenPingBadChange = change;
-
-        if (
-          givenUpvoteChange ||
-          givenDownvoteChange ||
-          givenYayChange ||
-          givenSobChange ||
-          givenHeartChange ||
-          givenStarChange ||
-          givenFireChange ||
-          givenLeekChange ||
-          givenRealChange ||
-          givenSameChange ||
-          givenSkullChange ||
-          givenEyesChange ||
-          givenYipeeChange ||
-          givenPingGoodChange ||
-          givenPingBadChange
-        ) {
-            const reactingUserStats = await db.query.userStats.findFirst({
-                where: eq(userStats.userId, reactingUserId),
-            });
-
-            if (reactingUserStats) {
-                await db.update(userStats)
-                    .set({
-                        givenUpvotes: sql`${userStats.givenUpvotes} + ${givenUpvoteChange}`,
-                        givenDownvotes: sql`${userStats.givenDownvotes} + ${givenDownvoteChange}`,
-                        givenYay: sql`${userStats.givenYay} + ${givenYayChange}`,
-                        givenSob: sql`${userStats.givenSob} + ${givenSobChange}`,
-                        givenHeart: sql`${userStats.givenHeart} + ${givenHeartChange}`,
-                        givenStar: sql`${userStats.givenStar} + ${givenStarChange}`,
-                        givenFire: sql`${userStats.givenFire} + ${givenFireChange}`,
-                        givenLeek: sql`${userStats.givenLeek} + ${givenLeekChange}`,
-                        givenReal: sql`${userStats.givenReal} + ${givenRealChange}`,
-                        givenSame: sql`${userStats.givenSame} + ${givenSameChange}`,
-                        givenSkull: sql`${userStats.givenSkull} + ${givenSkullChange}`,
-                        givenEyes: sql`${userStats.givenEyes} + ${givenEyesChange}`,
-                        givenYipee: sql`${userStats.givenYipee} + ${givenYipeeChange}`,
-                        givenPingGood: sql`${userStats.givenPingGood} + ${givenPingGoodChange}`,
-                        givenPingBad: sql`${userStats.givenPingBad} + ${givenPingBadChange}`,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(userStats.userId, reactingUserId));
-            } else {
-                const userInfo = await slack.users.info({ user: reactingUserId });
-                if (userInfo.ok && userInfo.user) {
-                    await db.insert(userStats)
-                        .values({
-                            userId: reactingUserId,
-                            userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
-                            avatarUrl: userInfo.user.profile?.image_72,
-                            givenUpvotes: givenUpvoteChange > 0 ? 1 : 0,
-                            givenDownvotes: givenDownvoteChange > 0 ? 1 : 0,
-                            givenYay: givenYayChange > 0 ? 1 : 0,
-                            givenSob: givenSobChange > 0 ? 1 : 0,
-                            givenHeart: givenHeartChange > 0 ? 1 : 0,
-                            givenStar: givenStarChange > 0 ? 1 : 0,
-                            givenFire: givenFireChange > 0 ? 1 : 0,
-                            givenLeek: givenLeekChange > 0 ? 1 : 0,
-                            givenReal: givenRealChange > 0 ? 1 : 0,
-                            givenSame: givenSameChange > 0 ? 1 : 0,
-                            givenSkull: givenSkullChange > 0 ? 1 : 0,
-                            givenEyes: givenEyesChange > 0 ? 1 : 0,
-                            givenYipee: givenYipeeChange > 0 ? 1 : 0,
-                            givenPingGood: givenPingGoodChange > 0 ? 1 : 0,
-                            givenPingBad: givenPingBadChange > 0 ? 1 : 0,
-                            updatedAt: new Date(),
-                        })
-                        .onConflictDoNothing();
-                }
-            }
-        }
-      }
-
-      const { channel, ts } = item;
-      const threadTs = item.thread_ts;
-      const isThreadReply = threadTs && threadTs !== ts;
-
-      const resyncMessageReactions = async (ts: string, channel: string) => {
-        console.log(`Re-syncing reactions for existing message ${ts}`);
-        try {
-          const reactionData = await slack.reactions.get({ channel, timestamp: ts });
-          const upvoterIds = new Set<string>();
-          let authoritativeDownvotes = 0;
-
-          let yayCount = 0;
-          let sobCount = 0;
-          let heartCount = 0;
-          let starCount = 0;
-          let fireCount = 0;
-          let leekCount = 0;
-          let realCount = 0;
-          let sameCount = 0;
-          let skullCount = 0;
-          let eyesCount = 0;
-          let yipeeCount = 0;
-          let pingGoodCount = 0;
-          let pingBadCount = 0;
-
-          if (reactionData.ok && reactionData.message?.reactions) {
-            for (const reactionItem of reactionData.message.reactions) {
-              if (reactionItem.name && upvoteReactions.includes(reactionItem.name) && reactionItem.users) {
-                reactionItem.users.forEach(u => upvoterIds.add(u));
-              } else if (reactionItem.name && downvoteReactions.includes(reactionItem.name)) {
-                authoritativeDownvotes = reactionItem.count ?? 0;
-              } else if (reactionItem.name && yayReactions.includes(reactionItem.name)) {
-                yayCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && sobReactions.includes(reactionItem.name)) {
-                sobCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && heartReactions.includes(reactionItem.name)) {
-                heartCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && starReactions.includes(reactionItem.name)) {
-                starCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && fireReactions.includes(reactionItem.name)) {
-                fireCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && leekReactions.includes(reactionItem.name)) {
-                leekCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && realReactions.includes(reactionItem.name)) {
-                realCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && sameReactions.includes(reactionItem.name)) {
-                sameCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && skullReactions.includes(reactionItem.name)) {
-                skullCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && eyesReactions.includes(reactionItem.name)) {
-                eyesCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && yipeeReactions.includes(reactionItem.name)) {
-                yipeeCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && pingGoodReactions.includes(reactionItem.name)) {
-                pingGoodCount = reactionItem.count ?? 0;
-              } else if (reactionItem.name && pingBadReactions.includes(reactionItem.name)) {
-                pingBadCount = reactionItem.count ?? 0;
-              }
-            }
-          }
-
-          const totalReactions =
-            upvoterIds.size +
-            authoritativeDownvotes +
-            yayCount +
-            sobCount +
-            heartCount +
-            starCount +
-            fireCount +
-            leekCount +
-            realCount +
-            sameCount +
-            skullCount +
-            eyesCount +
-            yipeeCount +
-            pingGoodCount +
-            pingBadCount;
-
-          await db
-            .update(messages)
-            .set({
-              upvotes: upvoterIds.size,
-              downvotes: authoritativeDownvotes,
-              yay: yayCount,
-              sob: sobCount,
-              heart: heartCount,
-              star: starCount,
-              fire: fireCount,
-              leek: leekCount,
-              real: realCount,
-              same: sameCount,
-              skull: skullCount,
-              eyes: eyesCount,
-              yipee: yipeeCount,
-              pingGood: pingGoodCount,
-              pingBad: pingBadCount,
-              totalReactions,
-              updatedAt: new Date(),
-            })
-            .where(eq(messages.messageTs, ts));
-        } catch (error) {
-            console.error(`Error re-syncing reactions for message ${ts}:`, error);
-        }
-      }
-
-      const message = await db.query.messages.findFirst({
-        where: eq(messages.messageTs, ts),
-      });
-
-      const messageAuthorId = message?.userId;
-      if (messageAuthorId) {
-        const isOptedOut = await db.query.optedOutUsers.findFirst({
-          where: eq(optedOutUsers.slackUserId, messageAuthorId),
-        });
-        if (isOptedOut) {
-          console.log(`Ignoring reaction for message by opted-out user ${messageAuthorId}`);
-          return NextResponse.json({ ok: true });
-        }
-      }
-      
-      if (!message) {
-        try {
-          let messageData;
-          let parentContent = null;
-          let parentUserName = null;
-
-          if (isThreadReply) {
-            const threadHistory = await conversationsReplies({ 
-              channel, 
-              ts: threadTs!,
-              inclusive: true 
-            });
-            messageData = threadHistory.messages?.find(msg => msg.ts === ts);
-            
-            const parentMessage = threadHistory.messages?.[0];
-            if (parentMessage && parentMessage.ts === threadTs) {
-              parentContent = parentMessage.text || "";
-              const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
-              parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-                        }
-            
-          } else {
-            const history = await conversationsHistory({ channel, latest: ts, limit: 1, inclusive: true });
-            messageData = history.messages?.[0];
-          }
-
-          if (!messageData || !messageData.user || !messageData.text) {
-            return NextResponse.json({ error: "Message details not found in Slack history" }, { status: 404 });
-          }
-
-          const isOptedOut = await db.query.optedOutUsers.findFirst({
-            where: eq(optedOutUsers.slackUserId, messageData.user),
-          });
-          if (isOptedOut) {
-            console.log(`Ignoring new message from opted-out user ${messageData.user}`);
-            return NextResponse.json({ ok: true });
-          }
-
-          const [userInfo, channelInfo] = await Promise.all([
-            slack.users.info({ user: messageData.user }),
-            slack.conversations.info({ channel }),
-          ]);
-
-          const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
-          const avatarUrl = userInfo.user?.profile?.image_72;
-          const channelName = channelInfo.channel?.name || "unknown-channel";
-
-          await db.insert(messages).values({
-            messageTs: ts,
-            channelId: channel,
-            channelName: channelName,
-            userId: messageData.user,
-            userName: userName,
-            avatarUrl: avatarUrl,
-            content: messageData.text,
-            upvotes: 0,
-            downvotes: 0,
-            threadTs: threadTs || null,
-            isThreadReply: isThreadReply || false,
-            parentContent: parentContent,
-            parentUserName: parentUserName,
-            updatedAt: new Date(),
-          });
-
-          await resyncMessageReactions(ts, channel);
-
-        } catch (error) {
-          const isDuplicateKeyError = error && typeof error === 'object' && 'cause' in error && 
-                                      typeof error.cause === 'object' && error.cause && 'code' in error.cause && 
-                                      error.cause.code === '23505';
-
-          if (isDuplicateKeyError) {
-            console.log(`Race condition handled for message ${ts}. Re-syncing reactions now.`);
-            await resyncMessageReactions(ts, channel);
-          } else {
-            console.error("An unhandled error occurred during message creation:", error);
-          }
-        }
-      } else {
-        await resyncMessageReactions(ts, channel);
-      }
+      await handleReactionEvent(event);
     }
   }
 
   return NextResponse.json({ ok: true });
+}
+
+async function handleReactionEvent(event: {
+  type: "reaction_added" | "reaction_removed";
+  reaction: string;
+  item: {
+    channel: string;
+    ts: string;
+    thread_ts?: string;
+  };
+  user: string;
+}) {
+  const { reaction, item, user: reactingUserId } = event;
+  const { channel, ts } = item;
+  const threadTs = item.thread_ts;
+  const isThreadReply = threadTs && threadTs !== ts;
+  const isAdd = event.type === "reaction_added";
+
+  // Log all reaction events for debugging and analytics
+  try {
+    await db.insert(reactionEvents).values({
+      messageTs: ts,
+      channelId: channel,
+      userId: reactingUserId,
+      reactionName: reaction,
+      eventType: isAdd ? "added" : "removed",
+    });
+  } catch (error) {
+    console.error("Failed to log reaction event:", error);
+  }
+
+  // Check if this message exists in our database
+  const existingMessage = await db.query.messages.findFirst({
+    where: eq(messages.messageTs, ts),
+  });
+
+  const isImportantReaction = getAllImportantReactions().includes(reaction);
+
+  // If message doesn't exist, create placeholder record immediately
+  if (!existingMessage) {
+    try {
+             await createPlaceholderMessage(ts, channel, threadTs, !!isThreadReply);
+      console.log(`Created placeholder record for message ${ts}`);
+    } catch (error) {
+      const isDuplicateKeyError = error && typeof error === 'object' && 'cause' in error && 
+                                  typeof error.cause === 'object' && error.cause && 'code' in error.cause && 
+                                  error.cause.code === '23505';
+      if (!isDuplicateKeyError) {
+        console.error("Failed to create placeholder message:", error);
+      }
+    }
+  }
+
+  // If this is an important reaction, ensure we have full message details
+  if (isImportantReaction) {
+    const messageRecord = await db.query.messages.findFirst({
+      where: eq(messages.messageTs, ts),
+    });
+
+    // Check if message author has opted out
+    if (messageRecord?.userId) {
+      const isOptedOut = await db.query.optedOutUsers.findFirst({
+        where: eq(optedOutUsers.slackUserId, messageRecord.userId),
+      });
+      if (isOptedOut) {
+        console.log(`Ignoring reaction for message by opted-out user ${messageRecord.userId}`);
+        return;
+      }
+    }
+
+    // If it's a placeholder, fill in the full details
+    if (messageRecord?.isPlaceholder) {
+      try {
+                 await fillPlaceholderMessage(ts, channel, threadTs, !!isThreadReply);
+        console.log(`Filled placeholder record for message ${ts}`);
+      } catch (error) {
+        console.error(`Failed to fill placeholder for message ${ts}:`, error);
+      }
+    }
+  }
+
+  // Update reaction counts by re-syncing from Slack
+  await resyncMessageReactions(ts, channel);
+
+  // Update user stats for the reacting user
+  if (reactingUserId) {
+    await updateUserReactionStats(reactingUserId, reaction, isAdd);
+  }
+}
+
+async function createPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
+  await db.insert(messages).values({
+    messageTs: ts,
+    channelId: channel,
+    channelName: null,
+    userId: "unknown",
+    userName: "Unknown User",
+    avatarUrl: null,
+    content: "Loading...",
+    threadTs: threadTs || null,
+    isThreadReply: isThreadReply || false,
+    parentContent: null,
+    parentUserName: null,
+    isPlaceholder: true,
+    upvotes: 0,
+    downvotes: 0,
+    yay: 0,
+    sob: 0,
+    heart: 0,
+    star: 0,
+    fire: 0,
+    leek: 0,
+    real: 0,
+    same: 0,
+    skull: 0,
+    eyes: 0,
+    yipee: 0,
+    pingGood: 0,
+    pingBad: 0,
+    totalReactions: 0,
+    otherReactions: {},
+  });
+}
+
+async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
+  let messageData;
+  let parentContent = null;
+  let parentUserName = null;
+
+  if (isThreadReply) {
+    const threadHistory = await conversationsReplies({ 
+      channel, 
+      ts: threadTs!,
+      inclusive: true 
+    });
+    messageData = threadHistory.messages?.find(msg => msg.ts === ts);
+    
+    const parentMessage = threadHistory.messages?.[0];
+    if (parentMessage && parentMessage.ts === threadTs) {
+      parentContent = parentMessage.text || "";
+      const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
+      parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+    }
+  } else {
+    const history = await conversationsHistory({ channel, latest: ts, limit: 1, inclusive: true });
+    messageData = history.messages?.[0];
+  }
+
+  if (!messageData || !messageData.user || !messageData.text) {
+    throw new Error("Message details not found in Slack history");
+  }
+
+  // Check if message author has opted out
+  const isOptedOut = await db.query.optedOutUsers.findFirst({
+    where: eq(optedOutUsers.slackUserId, messageData.user),
+  });
+  if (isOptedOut) {
+    console.log(`Message author ${messageData.user} has opted out, keeping placeholder`);
+    return;
+  }
+
+  const [userInfo, channelInfo] = await Promise.all([
+    slack.users.info({ user: messageData.user }),
+    slack.conversations.info({ channel }),
+  ]);
+
+  const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
+  const avatarUrl = userInfo.user?.profile?.image_72;
+  const channelName = channelInfo.channel?.name || "unknown-channel";
+
+  await db
+    .update(messages)
+    .set({
+      channelName: channelName,
+      userId: messageData.user,
+      userName: userName,
+      avatarUrl: avatarUrl,
+      content: messageData.text,
+      parentContent: parentContent,
+      parentUserName: parentUserName,
+      isPlaceholder: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(messages.messageTs, ts));
+}
+
+async function resyncMessageReactions(ts: string, channel: string): Promise<void> {
+  console.log(`Re-syncing reactions for message ${ts}`);
+  try {
+    const reactionData = await slack.reactions.get({ channel, timestamp: ts });
+    const counts: ReactionCounts = {
+      upvotes: 0,
+      downvotes: 0,
+      yay: 0,
+      sob: 0,
+      heart: 0,
+      star: 0,
+      fire: 0,
+      leek: 0,
+      real: 0,
+      same: 0,
+      skull: 0,
+      eyes: 0,
+      yipee: 0,
+      pingGood: 0,
+      pingBad: 0,
+      otherReactions: {},
+      totalReactions: 0,
+    };
+
+    if (reactionData.ok && reactionData.message?.reactions) {
+      for (const reactionItem of reactionData.message.reactions) {
+        if (!reactionItem.name || !reactionItem.count) continue;
+
+        const category = getReactionCategory(reactionItem.name);
+        if (category) {
+          // Handle special case for upvotes (need to get actual user list)
+          if (category === "upvotes") {
+            const upvoterIds = new Set<string>();
+            if (reactionItem.users) {
+              reactionItem.users.forEach(u => upvoterIds.add(u));
+            }
+            counts.upvotes = upvoterIds.size;
+          } else {
+            counts[category as keyof Omit<ReactionCounts, 'otherReactions' | 'totalReactions'>] = reactionItem.count;
+          }
+        } else {
+          // Track other reactions in JSON field
+          counts.otherReactions[reactionItem.name] = reactionItem.count;
+        }
+        
+        counts.totalReactions += reactionItem.count;
+      }
+    }
+
+    await db
+      .update(messages)
+      .set({
+        upvotes: counts.upvotes,
+        downvotes: counts.downvotes,
+        yay: counts.yay,
+        sob: counts.sob,
+        heart: counts.heart,
+        star: counts.star,
+        fire: counts.fire,
+        leek: counts.leek,
+        real: counts.real,
+        same: counts.same,
+        skull: counts.skull,
+        eyes: counts.eyes,
+        yipee: counts.yipee,
+        pingGood: counts.pingGood,
+        pingBad: counts.pingBad,
+        otherReactions: counts.otherReactions,
+        totalReactions: counts.totalReactions,
+        updatedAt: new Date(),
+      })
+      .where(eq(messages.messageTs, ts));
+  } catch (error) {
+    console.error(`Error re-syncing reactions for message ${ts}:`, error);
+  }
+}
+
+async function updateUserReactionStats(reactingUserId: string, reaction: string, isAdd: boolean): Promise<void> {
+  const change = isAdd ? 1 : -1;
+  const category = getReactionCategory(reaction);
+
+  try {
+    const existingUserStats = await db.query.userStats.findFirst({
+      where: eq(userStats.userId, reactingUserId),
+    });
+
+         if (existingUserStats) {
+              if (category) {
+         // Update important reaction count
+         const fieldName = `given${category.charAt(0).toUpperCase() + category.slice(1)}` as keyof typeof userStats.$inferSelect;
+         await db.update(userStats)
+           .set({
+             [fieldName]: sql`${userStats[fieldName]} + ${change}`,
+             updatedAt: new Date(),
+           })
+           .where(eq(userStats.userId, reactingUserId));
+       } else {
+         // Update other reactions in JSON field
+         const currentOtherReactions = existingUserStats.otherGivenReactions as Record<string, number> || {};
+         const newCount = (currentOtherReactions[reaction] || 0) + change;
+         
+         if (newCount <= 0) {
+           delete currentOtherReactions[reaction];
+         } else {
+           currentOtherReactions[reaction] = newCount;
+         }
+         
+         await db.update(userStats)
+           .set({
+             otherGivenReactions: currentOtherReactions,
+             updatedAt: new Date(),
+           })
+           .where(eq(userStats.userId, reactingUserId));
+       }
+    } else {
+                    // Create new user stats record
+       const userInfo = await slack.users.info({ user: reactingUserId });
+       if (userInfo.ok && userInfo.user) {
+         const baseStats = {
+           userId: reactingUserId,
+           userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
+           avatarUrl: userInfo.user.profile?.image_72,
+           givenUpvotes: 0,
+           givenDownvotes: 0,
+           givenYay: 0,
+           givenSob: 0,
+           givenHeart: 0,
+           givenStar: 0,
+           givenFire: 0,
+           givenLeek: 0,
+           givenReal: 0,
+           givenSame: 0,
+           givenSkull: 0,
+           givenEyes: 0,
+           givenYipee: 0,
+           givenPingGood: 0,
+           givenPingBad: 0,
+           otherGivenReactions: {} as Record<string, number>,
+           updatedAt: new Date(),
+         };
+
+         if (category && isAdd) {
+           const fieldName = `given${category.charAt(0).toUpperCase() + category.slice(1)}`;
+           if (fieldName === 'givenUpvotes') baseStats.givenUpvotes = 1;
+           else if (fieldName === 'givenDownvotes') baseStats.givenDownvotes = 1;
+           else if (fieldName === 'givenYay') baseStats.givenYay = 1;
+           else if (fieldName === 'givenSob') baseStats.givenSob = 1;
+           else if (fieldName === 'givenHeart') baseStats.givenHeart = 1;
+           else if (fieldName === 'givenStar') baseStats.givenStar = 1;
+           else if (fieldName === 'givenFire') baseStats.givenFire = 1;
+           else if (fieldName === 'givenLeek') baseStats.givenLeek = 1;
+           else if (fieldName === 'givenReal') baseStats.givenReal = 1;
+           else if (fieldName === 'givenSame') baseStats.givenSame = 1;
+           else if (fieldName === 'givenSkull') baseStats.givenSkull = 1;
+           else if (fieldName === 'givenEyes') baseStats.givenEyes = 1;
+           else if (fieldName === 'givenYipee') baseStats.givenYipee = 1;
+           else if (fieldName === 'givenPingGood') baseStats.givenPingGood = 1;
+           else if (fieldName === 'givenPingBad') baseStats.givenPingBad = 1;
+         } else if (!category && isAdd) {
+           baseStats.otherGivenReactions = { [reaction]: 1 };
+         }
+
+         await db.insert(userStats)
+           .values(baseStats)
+           .onConflictDoNothing();
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to update user stats for ${reactingUserId}:`, error);
+  }
 } 

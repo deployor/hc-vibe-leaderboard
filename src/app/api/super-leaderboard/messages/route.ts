@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { messages } from "@/db/schema";
-import { desc, gt, and, sql, ne, AnyColumn } from "drizzle-orm";
+import { desc, gt, and, sql, ne, AnyColumn, eq } from "drizzle-orm";
 import { getSession } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
   const hasEngagement = and(
     gt(messages.totalReactions, 0),
     ne(messages.channelId, "C0710J7F4U9"), // #vibe-check channel
-    ne(messages.userId, "U023L3A4UKX") // beans user
+    ne(messages.userId, "U023L3A4UKX"), // beans user
+    eq(messages.isPlaceholder, false) // Exclude placeholder records
   );
 
   let where;
@@ -46,81 +47,26 @@ export async function GET(req: NextRequest) {
     "totalReactions",
   ];
 
-  if (reactionSortColumns.includes(sort)) {
-    const sortColumn = messages[sort as keyof typeof messages.$inferSelect] as AnyColumn;
-    where = and(where, gt(sortColumn, 0));
-  }
-
   let orderBy;
-  const secondarySort = [desc(sql`upvotes - downvotes`), desc(messages.createdAt), desc(messages.id)];
-
-  switch (sort) {
-    case "net_score":
-      orderBy = [desc(sql`upvotes - downvotes`), desc(messages.upvotes), desc(messages.createdAt), desc(messages.id)];
-      break;
-    case "upvotes":
-      orderBy = [desc(messages.upvotes), ...secondarySort];
-      break;
-    case "downvotes":
-      orderBy = [desc(messages.downvotes), ...secondarySort];
-      break;
-    case "yay":
-      orderBy = [desc(messages.yay), ...secondarySort];
-      break;
-    case "sob":
-      orderBy = [desc(messages.sob), ...secondarySort];
-      break;
-    case "heart":
-      orderBy = [desc(messages.heart), ...secondarySort];
-      break;
-    case "star":
-      orderBy = [desc(messages.star), ...secondarySort];
-      break;
-    case "fire":
-      orderBy = [desc(messages.fire), ...secondarySort];
-      break;
-    case "leek":
-      orderBy = [desc(messages.leek), ...secondarySort];
-      break;
-    case "real":
-      orderBy = [desc(messages.real), ...secondarySort];
-      break;
-    case "same":
-      orderBy = [desc(messages.same), ...secondarySort];
-      break;
-    case "skull":
-      orderBy = [desc(messages.skull), ...secondarySort];
-      break;
-    case "eyes":
-      orderBy = [desc(messages.eyes), ...secondarySort];
-      break;
-    case "yipee":
-      orderBy = [desc(messages.yipee), ...secondarySort];
-      break;
-    case "pingGood":
-      orderBy = [desc(messages.pingGood), ...secondarySort];
-      break;
-    case "pingBad":
-      orderBy = [desc(messages.pingBad), ...secondarySort];
-      break;
-    case "totalReactions":
-      orderBy = [desc(messages.totalReactions), ...secondarySort];
-      break;
-    case "createdAt":
-      orderBy = [desc(messages.createdAt), ...secondarySort];
-      break;
-    default:
-      orderBy = [desc(sql`upvotes - downvotes`), desc(messages.upvotes), desc(messages.createdAt), desc(messages.id)];
-      break;
+  if (sort === "net_score") {
+    orderBy = desc(sql`${messages.upvotes} - ${messages.downvotes}`);
+  } else if (sort === "createdAt") {
+    orderBy = desc(messages.createdAt);
+  } else if (reactionSortColumns.includes(sort)) {
+    const column = messages[sort as keyof typeof messages] as AnyColumn;
+    orderBy = desc(column);
+  } else {
+    // Default fallback
+    orderBy = desc(sql`${messages.upvotes} - ${messages.downvotes}`);
   }
 
-  const leaderboard = await db
+  const result = await db
     .select()
     .from(messages)
     .where(where)
-    .orderBy(...orderBy)
+    .orderBy(orderBy)
     .limit(limit)
     .offset(offset);
 
-  return NextResponse.json(leaderboard);
+  return NextResponse.json(result);
 } 

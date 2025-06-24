@@ -282,11 +282,17 @@ const UserCard = ({ user, index }: { user: User; index: number }) => {
             
             <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-emerald-400 font-medium">Total Upvotes:</span>
+                <span className="text-emerald-400 font-medium flex items-center gap-1">
+                  <Image src="/api/slack/emoji/upvote" alt="upvote" width={16} height={16} unoptimized />
+                  Total Upvotes:
+                </span>
                 <span className="text-white font-bold text-lg">{user.totalUpvotes}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
-                <span className="text-red-400 font-medium">Total Downvotes:</span>
+                <span className="text-red-400 font-medium flex items-center gap-1">
+                  <Image src="/api/slack/emoji/downvote" alt="downvote" width={16} height={16} unoptimized />
+                  Total Downvotes:
+                </span>
                 <span className="text-white font-bold text-lg">{user.totalDownvotes}</span>
               </div>
               <div className="flex justify-between items-center">
@@ -391,11 +397,17 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
             
             <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-44 p-4 bg-slate-900/95 border border-slate-600/50 rounded-xl text-sm opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-20 backdrop-blur-md shadow-xl">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-emerald-400 font-medium">Upvotes:</span>
+                <span className="text-emerald-400 font-medium flex items-center gap-1">
+                  <Image src="/api/slack/emoji/upvote" alt="upvote" width={16} height={16} unoptimized />
+                  Upvotes:
+                </span>
                 <span className="text-white font-bold text-lg">{msg.upvotes}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-red-400 font-medium">Downvotes:</span>
+                <span className="text-red-400 font-medium flex items-center gap-1">
+                  <Image src="/api/slack/emoji/downvote" alt="downvote" width={16} height={16} unoptimized />
+                  Downvotes:
+                </span>
                 <span className="text-white font-bold text-lg">{msg.downvotes}</span>
               </div>
               <div className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-4 bg-slate-900/95 border-b border-l border-slate-600/50 rotate-45"></div>

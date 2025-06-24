@@ -62,9 +62,9 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
                     <div className="font-bold text-xl text-center group relative text-slate-400">
                         {isSpecificSort && sortMeta ? (
                             <div className="p-2 rounded-lg bg-slate-500/10 transition-all duration-200 w-20 h-24 flex flex-col justify-center items-center">
-                                <ReactionIcon icon={sortMeta.icon} name={sortMeta.name} size={32} />
+                                <ReactionIcon icon={sortMeta.icon} name={sortMeta.name} emoji={sortMeta.emoji} size={32} />
                                 <div className="text-3xl font-black py-1 text-white">
-                                    {msg[sort as keyof Message]}
+                                    {typeof msg[sort as keyof Message] === 'number' ? (msg[sort as keyof Message] as number) : 0}
                                 </div>
                             </div>
                         ) : (
@@ -111,15 +111,28 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
                     </div>
                     <div className="text-slate-300 my-4"><MrkdwnText>{msg.content}</MrkdwnText></div>
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {/* Important reactions */}
                         {Object.entries(msg).map(([key, value]) => {
                             const meta = reactionMeta[key];
                             if (meta && typeof value === 'number' && value > 0 && key !== 'totalReactions') {
                                 return (
                                     <div key={key} className="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <ReactionIcon icon={meta.icon} name={meta.name} size={14} />
+                                        <ReactionIcon icon={meta.icon} name={meta.name} emoji={meta.emoji} size={14} />
                                         <span className="font-medium text-slate-300">{value}</span>
                                     </div>
                                 )
+                            }
+                            return null;
+                        })}
+                        {/* Other reactions from JSON field */}
+                        {msg.otherReactions && Object.entries(msg.otherReactions).map(([emojiName, count]) => {
+                            if (count > 0) {
+                                return (
+                                    <div key={emojiName} className="flex items-center gap-1.5 text-xs text-slate-400">
+                                        <ReactionIcon icon="" name={emojiName} emoji={emojiName} size={14} />
+                                        <span className="font-medium text-slate-300">{count}</span>
+                                    </div>
+                                );
                             }
                             return null;
                         })}
