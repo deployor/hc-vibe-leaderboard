@@ -36,12 +36,32 @@ export async function GET(req: NextRequest) {
     sql`SELECT COALESCE(SUM(${sumExpr}),0)::int AS sum FROM messages WHERE created_at >= NOW() - INTERVAL '24 hours'`
   );
   const newReactions24h = newReactionsRes[0]?.sum ?? 0;
+  
+  // Total "other" reactions
+  const totalOtherReactionsRes = await db.execute<{ sum: number }>(
+    sql`SELECT COALESCE(SUM((SELECT SUM(value::int) FROM json_each_text(other_reactions))), 0)::int as sum FROM messages`
+  );
+  const totalOtherReactions = totalOtherReactionsRes[0]?.sum ?? 0;
+
+  // New "other" reactions in last 24h
+  const newOtherReactionsRes = await db.execute<{ sum: number }>(
+    sql`SELECT COALESCE(SUM((SELECT SUM(value::int) FROM json_each_text(other_reactions))), 0)::int as sum FROM messages WHERE created_at >= NOW() - INTERVAL '24 hours'`
+  );
+  const newOtherReactions24h = newOtherReactionsRes[0]?.sum ?? 0;
+
 
   // Total messages
   const totalMessagesRes = await db.execute<{ count: number }>(
     sql`SELECT COUNT(*)::int AS count FROM messages`
   );
   const totalMessages = totalMessagesRes[0]?.count ?? 0;
+  
+  // Placeholder messages
+  const placeholderMessagesRes = await db.execute<{ count: number }>(
+    sql`SELECT COUNT(*)::int AS count FROM messages WHERE is_placeholder = true`
+  );
+  const placeholderMessages = placeholderMessagesRes[0]?.count ?? 0;
+
 
   // Priority channels count
   const priorityChannelsRes = await db.execute<{ count: number }>(
@@ -62,14 +82,26 @@ export async function GET(req: NextRequest) {
     '# HELP leaderboard_total_messages Total Slack messages tracked',
     '# TYPE leaderboard_total_messages gauge',
     `leaderboard_total_messages ${totalMessages}`,
+    
+    '# HELP leaderboard_placeholder_messages Total messages that are placeholders',
+    '# TYPE leaderboard_placeholder_messages gauge',
+    `leaderboard_placeholder_messages ${placeholderMessages}`,
 
-    '# HELP leaderboard_total_reactions Total reactions counted across all messages',
+    '# HELP leaderboard_total_reactions Total "important" reactions counted across all messages',
     '# TYPE leaderboard_total_reactions counter',
     `leaderboard_total_reactions ${totalReactions}`,
 
-    '# HELP leaderboard_new_reactions_24h Reactions counted in the last 24 hours',
+    '# HELP leaderboard_new_reactions_24h "Important" reactions counted in the last 24 hours',
     '# TYPE leaderboard_new_reactions_24h gauge',
     `leaderboard_new_reactions_24h ${newReactions24h}`,
+    
+    '# HELP leaderboard_total_other_reactions Total "other" reactions counted across all messages',
+    '# TYPE leaderboard_total_other_reactions counter',
+    `leaderboard_total_other_reactions ${totalOtherReactions}`,
+    
+    '# HELP leaderboard_new_other_reactions_24h "Other" reactions counted in the last 24 hours',
+    '# TYPE leaderboard_new_other_reactions_24h gauge',
+    `leaderboard_new_other_reactions_24h ${newOtherReactions24h}`,
 
     '# HELP leaderboard_priority_channels Channels configured for priority token',
     '# TYPE leaderboard_priority_channels gauge',

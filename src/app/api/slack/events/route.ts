@@ -134,8 +134,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
-}
+        return NextResponse.json({ ok: true });
+      }
 
 async function handleReactionEvent(event: {
   type: "reaction_added" | "reaction_removed";
@@ -151,7 +151,7 @@ async function handleReactionEvent(event: {
   const { channel, ts } = item;
   const threadTs = item.thread_ts;
   const isThreadReply = threadTs && threadTs !== ts;
-  const isAdd = event.type === "reaction_added";
+        const isAdd = event.type === "reaction_added";
 
   // Log all reaction events for debugging and analytics
   try {
@@ -260,63 +260,63 @@ async function createPlaceholderMessage(ts: string, channel: string, threadTs?: 
 }
 
 async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
-  let messageData;
-  let parentContent = null;
-  let parentUserName = null;
+          let messageData;
+          let parentContent = null;
+          let parentUserName = null;
 
-  if (isThreadReply) {
-    const threadHistory = await conversationsReplies({ 
-      channel, 
-      ts: threadTs!,
-      inclusive: true 
-    });
-    messageData = threadHistory.messages?.find(msg => msg.ts === ts);
-    
-    const parentMessage = threadHistory.messages?.[0];
-    if (parentMessage && parentMessage.ts === threadTs) {
-      parentContent = parentMessage.text || "";
-      const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
-      parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
-    }
-  } else {
-    const history = await conversationsHistory({ channel, latest: ts, limit: 1, inclusive: true });
-    messageData = history.messages?.[0];
-  }
+          if (isThreadReply) {
+            const threadHistory = await conversationsReplies({ 
+              channel, 
+              ts: threadTs!,
+              inclusive: true 
+            });
+            messageData = threadHistory.messages?.find(msg => msg.ts === ts);
+            
+            const parentMessage = threadHistory.messages?.[0];
+            if (parentMessage && parentMessage.ts === threadTs) {
+              parentContent = parentMessage.text || "";
+              const parentUserInfo = await slack.users.info({ user: parentMessage.user! });
+              parentUserName = parentUserInfo.user?.profile?.display_name || parentUserInfo.user?.name || "Unknown";
+                        }
+          } else {
+            const history = await conversationsHistory({ channel, latest: ts, limit: 1, inclusive: true });
+            messageData = history.messages?.[0];
+          }
 
-  if (!messageData || !messageData.user || !messageData.text) {
+          if (!messageData || !messageData.user || !messageData.text) {
     throw new Error("Message details not found in Slack history");
-  }
+          }
 
   // Check if message author has opted out
-  const isOptedOut = await db.query.optedOutUsers.findFirst({
-    where: eq(optedOutUsers.slackUserId, messageData.user),
-  });
-  if (isOptedOut) {
+          const isOptedOut = await db.query.optedOutUsers.findFirst({
+            where: eq(optedOutUsers.slackUserId, messageData.user),
+          });
+          if (isOptedOut) {
     console.log(`Message author ${messageData.user} has opted out, keeping placeholder`);
     return;
-  }
+          }
 
-  const [userInfo, channelInfo] = await Promise.all([
-    slack.users.info({ user: messageData.user }),
-    slack.conversations.info({ channel }),
-  ]);
+          const [userInfo, channelInfo] = await Promise.all([
+            slack.users.info({ user: messageData.user }),
+            slack.conversations.info({ channel }),
+          ]);
 
-  const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
-  const avatarUrl = userInfo.user?.profile?.image_72;
-  const channelName = channelInfo.channel?.name || "unknown-channel";
+          const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
+          const avatarUrl = userInfo.user?.profile?.image_72;
+          const channelName = channelInfo.channel?.name || "unknown-channel";
 
   await db
     .update(messages)
     .set({
-      channelName: channelName,
-      userId: messageData.user,
-      userName: userName,
-      avatarUrl: avatarUrl,
-      content: messageData.text,
-      parentContent: parentContent,
-      parentUserName: parentUserName,
+            channelName: channelName,
+            userId: messageData.user,
+            userName: userName,
+            avatarUrl: avatarUrl,
+            content: messageData.text,
+            parentContent: parentContent,
+            parentUserName: parentUserName,
       isPlaceholder: false,
-      updatedAt: new Date(),
+            updatedAt: new Date(),
     })
     .where(eq(messages.messageTs, ts));
 }
