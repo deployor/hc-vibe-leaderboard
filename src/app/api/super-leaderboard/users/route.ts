@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
         AND channel_id != 'C0710J7F4U9' 
         AND user_id != 'U023L3A4UKX'
         AND is_placeholder = false
+        AND user_id != 'unknown'
   `;
 
   // Add time filter
@@ -63,7 +64,27 @@ export async function GET(req: NextRequest) {
       GROUP BY user_id, user_name, avatar_url
     )
     SELECT 
-      agg.*,
+      agg.user_id,
+      COALESCE(us.user_name, agg.user_name) as user_name,
+      COALESCE(us.avatar_url, agg.avatar_url) as avatar_url,
+      agg.total_upvotes,
+      agg.total_downvotes,
+      agg.total_yay,
+      agg.total_sob,
+      agg.total_heart,
+      agg.total_star,
+      agg.total_fire,
+      agg.total_leek,
+      agg.total_real,
+      agg.total_same,
+      agg.total_skull,
+      agg.total_eyes,
+      agg.total_yipee,
+      agg.total_ping_good,
+      agg.total_ping_bad,
+      agg.net_score,
+      agg.message_count,
+      agg.last_message_at,
       COALESCE(us.given_upvotes, 0) as given_upvotes,
       COALESCE(us.given_downvotes, 0) as given_downvotes,
       COALESCE(us.given_yay, 0) as given_yay,
@@ -86,7 +107,7 @@ export async function GET(req: NextRequest) {
 
   // Add search filter
   if (search) {
-    queryText += ` WHERE agg.user_name ILIKE '%${search.replace(/'/g, "''")}%'`;
+    queryText += ` WHERE COALESCE(us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`;
   }
 
   // Add sorting

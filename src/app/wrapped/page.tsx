@@ -561,7 +561,7 @@ export default function WrappedPage() {
                     <AvatarImage
                         src={data.topUpvotedMessage.avatarUrl}
                         alt={data.topUpvotedMessage.userName}
-                        fallbackInitial={data.topUpvotedMessage.userName.charAt(0).toUpperCase()}
+                        fallbackInitial={(data.topUpvotedMessage.userName || '?').charAt(0).toUpperCase()}
                     />
                     <div className="text-left">
                         <p className="font-semibold text-white text-xl">
@@ -608,7 +608,7 @@ export default function WrappedPage() {
                 <AvatarImage
                   src={data.topStarredMessage.avatarUrl}
                   alt={data.topStarredMessage.userName}
-                  fallbackInitial={data.topStarredMessage.userName.charAt(0).toUpperCase()}
+                  fallbackInitial={(data.topStarredMessage.userName || '?').charAt(0).toUpperCase()}
                 />
                 <div className="text-left">
                   <p className="font-semibold text-white text-xl">
@@ -654,7 +654,7 @@ export default function WrappedPage() {
                 <AvatarImage
                   src={data.mostLovedMessage.avatarUrl}
                   alt={data.mostLovedMessage.userName}
-                  fallbackInitial={data.mostLovedMessage.userName.charAt(0).toUpperCase()}
+                  fallbackInitial={(data.mostLovedMessage.userName || '?').charAt(0).toUpperCase()}
                 />
                 <div className="text-left">
                   <p className="font-semibold text-white text-xl">
@@ -699,7 +699,7 @@ export default function WrappedPage() {
                 <AvatarImage
                   src={data.mostHatedMessage.avatarUrl}
                   alt={data.mostHatedMessage.userName}
-                  fallbackInitial={data.mostHatedMessage.userName.charAt(0).toUpperCase()}
+                  fallbackInitial={(data.mostHatedMessage.userName || '?').charAt(0).toUpperCase()}
                 />
                 <div className="text-left">
                   <p className="font-semibold text-white text-xl">
@@ -741,7 +741,7 @@ export default function WrappedPage() {
                   <AvatarImage
                     src={data.topUpvotedUser.avatarUrl}
                     alt={data.topUpvotedUser.userName}
-                    fallbackInitial={data.topUpvotedUser.userName.charAt(0).toUpperCase()}
+                    fallbackInitial={(data.topUpvotedUser.userName || '?').charAt(0).toUpperCase()}
                   />
               </motion.div>
               <motion.p variants={slideInFromBottom} className="font-semibold text-white text-4xl mt-6">
@@ -781,7 +781,7 @@ export default function WrappedPage() {
                     <AvatarImage
                     src={data.topSupporter.avatarUrl}
                     alt={data.topSupporter.userName}
-                    fallbackInitial={data.topSupporter.userName.charAt(0).toUpperCase()}
+                    fallbackInitial={(data.topSupporter.userName || '?').charAt(0).toUpperCase()}
                     />
                 </motion.div>
                 <motion.p variants={slideInFromBottom} className="font-semibold text-white text-4xl mt-6">

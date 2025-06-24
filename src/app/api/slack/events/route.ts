@@ -284,7 +284,8 @@ async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: st
           }
 
           if (!messageData || !messageData.user || !messageData.text) {
-    throw new Error("Message details not found in Slack history");
+            console.error(`Failed to get message details for ${ts} in channel ${channel}. It might be a private channel, the message was deleted, or there is Slack API lag. Leaving as placeholder.`);
+            return;
           }
 
   // Check if message author has opted out

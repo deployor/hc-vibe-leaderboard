@@ -44,10 +44,10 @@ export const UserCard = ({ user, onClick }: { user: User, onClick: () => void })
             className="bg-slate-800/80 border border-slate-700/50 rounded-xl p-6 backdrop-blur-sm cursor-pointer hover:bg-slate-800/50 transition-colors">
             <div className="flex items-center gap-5">
                 <div onClick={(e) => { e.stopPropagation(); onClick(); }} className="cursor-pointer">
-                    <AvatarImage src={user.avatarUrl} alt={user.userName} fallbackInitial={user.userName.charAt(0).toUpperCase()} size={16} />
+                    <AvatarImage src={user.avatarUrl} alt={user.userName || 'Unknown'} fallbackInitial={(user.userName || '?').charAt(0).toUpperCase()} size={16} />
                 </div>
                 <div className="flex-grow">
-                    <p className="font-semibold text-white text-xl">{user.userName}</p>
+                    <p className="font-semibold text-white text-xl">{user.userName || 'Unknown User'}</p>
                     <p className="text-sm text-slate-400">Last active: {getRelativeTime(new Date(user.lastMessageAt))}</p>
                 </div>
                 <div className="text-right flex-shrink-0 w-24">
