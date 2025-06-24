@@ -310,7 +310,7 @@ const UserCard = ({ user, index }: { user: User; index: number }) => {
               <AvatarImage
                 src={user.avatarUrl}
                 alt={user.userName}
-                fallbackInitial={user.userName.charAt(0).toUpperCase()}
+                fallbackInitial={(user.userName || '?').charAt(0).toUpperCase()}
               />
             </div>
             <div>
@@ -421,7 +421,7 @@ const MessageCard = ({ msg, index }: { msg: Message; index: number }) => {
               <AvatarImage
                 src={msg.avatarUrl}
                 alt={msg.userName}
-                fallbackInitial={msg.userName.charAt(0).toUpperCase()}
+                fallbackInitial={(msg.userName || '?').charAt(0).toUpperCase()}
               />
             </div>
             <div>
@@ -548,29 +548,47 @@ const InfoModal = ({ onClose }: { onClose: () => void }) => {
   );
 }
 
-const channelCache = new QuickLRU<string, { name: string }>({ maxSize: 500, maxAge: 1000*60*60});
+const channelCache = new QuickLRU<string, { name: string } | { error: true }>({ maxSize: 500, maxAge: 1000 * 60 * 60 });
 
 const ChannelName = ({ id }: { id: string }) => {
-  const [name, setName] = useState<string | null>(channelCache.has(id) ? channelCache.get(id)!.name : null);
+  const [channelInfo, setChannelInfo] = useState<{ name: string } | { error: true } | null>(channelCache.get(id) ?? null);
 
   useEffect(() => {
     let mounted = true;
-    if (!name) {
+    if (!channelInfo) {
       fetch(`/api/slack/channels/${id}`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
-          if (data && mounted) {
-            channelCache.set(id, { name: data.name });
-            setName(data.name);
+          if (!mounted) return;
+          if (data && data.name) {
+            const newInfo = { name: data.name };
+            channelCache.set(id, newInfo);
+            setChannelInfo(newInfo);
+          } else {
+            const errorInfo = { error: true as const };
+            channelCache.set(id, errorInfo);
+            setChannelInfo(errorInfo);
           }
         });
     }
     return () => { mounted = false; };
-  }, [id, name]);
+  }, [id, channelInfo]);
+
+  if (channelInfo && 'error' in channelInfo) {
+    return <p className="text-sm text-slate-500 italic">private/unknown</p>;
+  }
+  
+  if (channelInfo && 'name' in channelInfo) {
+    return (
+      <p className="text-sm text-slate-400 flex items-center gap-1">
+        #{channelInfo.name}
+      </p>
+    );
+  }
 
   return (
     <p className="text-sm text-slate-400 flex items-center gap-1">
-      {name ? `#${name}` : <span className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />}
+      <span className="w-3 h-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
     </p>
   );
 };

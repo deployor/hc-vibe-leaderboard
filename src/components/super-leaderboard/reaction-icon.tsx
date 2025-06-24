@@ -16,7 +16,7 @@ export const ReactionIcon = ({ icon: Icon, name, size = 20, className, emoji }: 
   if (emoji && !emojiError) {
     return (
       <Image 
-        src={`/api/slack/emoji/${emoji}`} 
+        src={`/api/slack/emoji/${encodeURIComponent(emoji)}`} 
         alt={name} 
         width={size} 
         height={size} 
