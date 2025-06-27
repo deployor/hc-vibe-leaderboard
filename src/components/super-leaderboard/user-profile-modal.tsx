@@ -9,7 +9,7 @@ import { Message } from "./lib/types";
 
 interface User {
   userId: string;
-  userName: string;
+  userName: string | null;
   avatarUrl?: string | null;
   netScore: number;
   messageCount: number;

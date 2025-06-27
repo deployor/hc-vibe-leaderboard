@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 interface User {
     userId: string;
-    userName: string;
+    userName: string | null;
     avatarUrl?: string | null;
     netScore: number;
     messageCount: number;

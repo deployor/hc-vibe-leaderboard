@@ -106,20 +106,12 @@ export async function GET(req: NextRequest) {
       COALESCE(us.given_ping_bad, 0) as given_ping_bad,
       COALESCE(us.other_given_reactions, '{}') as other_given_reactions
     FROM agg
-    LEFT JOIN user_stats us ON agg.user_id = us.user_id
+    INNER JOIN user_stats us ON agg.user_id = us.user_id
   `;
 
   // Add search filter
   if (search) {
     queryText += ` WHERE COALESCE(us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown User'`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown'`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) != ''`;
-  } else {
-    queryText += ` WHERE COALESCE(us.user_name, agg.user_name) != 'Unknown User'`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown'`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) != ''`;
-    queryText += ` AND COALESCE(us.user_name, agg.user_name) IS NOT NULL`;
   }
 
   // Add sorting
