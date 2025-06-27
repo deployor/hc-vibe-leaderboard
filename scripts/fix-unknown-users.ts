@@ -1,7 +1,11 @@
+import { config } from "dotenv";
 import { WebClient } from "@slack/web-api";
-import { db } from "../src/db";
-import { messages } from "../src/db/schema";
+import { db } from "../src/db/index.js";
+import { messages } from "../src/db/schema.js";
 import { eq, or, isNull } from "drizzle-orm";
+
+// Load environment variables
+config();
 
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 

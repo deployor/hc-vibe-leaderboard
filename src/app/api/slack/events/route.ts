@@ -284,6 +284,7 @@ async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: st
           }
 
           if (!messageData || !messageData.user || !messageData.text) {
+            
             console.error(`Failed to get message details for ${ts} in channel ${channel}. It might be a private channel, the message was deleted, or there is Slack API lag. Leaving as placeholder.`);
             return;
           }

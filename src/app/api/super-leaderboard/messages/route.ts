@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
     gt(messages.totalReactions, 0),
     ne(messages.channelId, "C0710J7F4U9"), // #vibe-check channel
     ne(messages.userId, "U023L3A4UKX"), // beans user
+    ne(messages.userId, "unknown"), // Filter out unknown users
+    ne(messages.userName, "Unknown User"), // Filter out unknown user names
+    ne(messages.userName, "Unknown"), // Filter out unknown user names
     eq(messages.isPlaceholder, false) // Exclude placeholder records
   );
 

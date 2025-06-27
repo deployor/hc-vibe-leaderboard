@@ -34,7 +34,11 @@ export async function GET(
     .from(messages)
     .where(and(
       eq(messages.userId, userId),
-      ne(messages.channelId, "C0710J7F4U9") // Exclude #vibe-check channel
+      ne(messages.channelId, "C0710J7F4U9"), // Exclude #vibe-check channel
+      eq(messages.isPlaceholder, false), // Exclude placeholder records
+      ne(messages.userId, "unknown"), // Filter out unknown users
+      ne(messages.userName, "Unknown User"), // Filter out unknown user names
+      ne(messages.userName, "Unknown") // Filter out unknown user names
     ))
     .orderBy(orderBy)
     .limit(5);

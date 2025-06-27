@@ -47,6 +47,10 @@ export async function GET(req: NextRequest) {
         AND user_id != 'U023L3A4UKX'
         AND is_placeholder = false
         AND user_id != 'unknown'
+        AND user_name != 'Unknown User'
+        AND user_name != 'Unknown'
+        AND user_name IS NOT NULL
+        AND user_name != ''
   `;
 
   // Add time filter
