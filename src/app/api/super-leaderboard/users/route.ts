@@ -21,8 +21,6 @@ export async function GET(req: NextRequest) {
     WITH agg AS (
       SELECT 
         user_id,
-        MAX(user_name) as user_name,
-        MAX(avatar_url) as avatar_url,
         SUM(upvotes) as total_upvotes,
         SUM(downvotes) as total_downvotes,
         SUM(yay) as total_yay,
@@ -42,15 +40,10 @@ export async function GET(req: NextRequest) {
         COUNT(*) as message_count,
         MAX(created_at) as last_message_at
       FROM messages 
-      WHERE total_reactions > 0 
-        AND channel_id != 'C0710J7F4U9' 
-        AND user_id != 'U023L3A4UKX'
-        AND is_placeholder = false
+      WHERE is_placeholder = false
         AND user_id != 'unknown'
-        AND user_name != 'Unknown User'
-        AND user_name != 'Unknown'
-        AND user_name IS NOT NULL
-        AND user_name != ''
+        AND user_id != 'U023L3A4UKX'
+        AND channel_id != 'C0710J7F4U9'
   `;
 
   // Add time filter
@@ -69,8 +62,8 @@ export async function GET(req: NextRequest) {
     )
     SELECT 
       agg.user_id,
-      COALESCE(u.name, us.user_name, agg.user_name) as user_name,
-      COALESCE(u.avatar_url, us.avatar_url, agg.avatar_url) as avatar_url,
+      COALESCE(u.name, us.user_name) as user_name,
+      COALESCE(u.avatar_url, us.avatar_url) as avatar_url,
       agg.total_upvotes,
       agg.total_downvotes,
       agg.total_yay,
@@ -106,13 +99,17 @@ export async function GET(req: NextRequest) {
       COALESCE(us.given_ping_bad, 0) as given_ping_bad,
       COALESCE(us.other_given_reactions, '{}') as other_given_reactions
     FROM agg
-    LEFT JOIN user_stats us ON agg.user_id = us.user_id
     LEFT JOIN users u ON agg.user_id = u.id
+    LEFT JOIN user_stats us ON agg.user_id = us.user_id
   `;
 
-  const conditions = ["agg.message_count > 0"];
+  const conditions = [
+    "COALESCE(u.name, us.user_name) IS NOT NULL",
+    "COALESCE(u.name, us.user_name) != ''"
+  ];
+
   if (search) {
-    conditions.push(`COALESCE(u.name, us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`);
+    conditions.push(`COALESCE(u.name, us.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`);
   }
   queryText += ` WHERE ${conditions.join(" AND ")}`;
 
