@@ -69,8 +69,8 @@ export async function GET(req: NextRequest) {
     )
     SELECT 
       agg.user_id,
-      COALESCE(us.user_name, agg.user_name) as user_name,
-      COALESCE(us.avatar_url, agg.avatar_url) as avatar_url,
+      COALESCE(u.name, us.user_name, agg.user_name) as user_name,
+      COALESCE(u.avatar_url, us.avatar_url, agg.avatar_url) as avatar_url,
       agg.total_upvotes,
       agg.total_downvotes,
       agg.total_yay,
@@ -106,13 +106,15 @@ export async function GET(req: NextRequest) {
       COALESCE(us.given_ping_bad, 0) as given_ping_bad,
       COALESCE(us.other_given_reactions, '{}') as other_given_reactions
     FROM agg
-    INNER JOIN user_stats us ON agg.user_id = us.user_id
+    LEFT JOIN user_stats us ON agg.user_id = us.user_id
+    LEFT JOIN users u ON agg.user_id = u.id
   `;
 
-  // Add search filter
+  const conditions = ["agg.message_count > 0"];
   if (search) {
-    queryText += ` WHERE COALESCE(us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`;
+    conditions.push(`COALESCE(u.name, us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`);
   }
+  queryText += ` WHERE ${conditions.join(" AND ")}`;
 
   // Add sorting
   if (sort === "net_score") {
@@ -134,4 +136,4 @@ export async function GET(req: NextRequest) {
   const result = await db.execute(sql.raw(queryText));
 
   return NextResponse.json(result);
-} 
+}

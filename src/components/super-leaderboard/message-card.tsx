@@ -54,10 +54,6 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
     const isSpecificSort = sort !== 'net_score' && sort !== 'createdAt';
     const sortMeta = reactionMeta[sort];
 
-    if (!msg.userName) {
-        return null;
-    }
-
     return (
         <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="bg-slate-800/80 border border-slate-700/50 rounded-xl p-6 backdrop-blur-sm">
@@ -98,9 +94,9 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
                 </div>
                 <div className="flex-grow">
                     <div className="flex items-center gap-4 mb-2">
-                        <AvatarImage src={msg.avatarUrl} alt={msg.userName || 'Unknown'} fallbackInitial={(msg.userName || '?').charAt(0).toUpperCase()} />
+                        <AvatarImage src={msg.avatarUrl} alt={msg.userName || ""} fallbackInitial={(msg.userName || "?").charAt(0).toUpperCase()} />
                         <div>
-                            <p className="font-semibold text-white text-lg">{msg.userName || 'Unknown User'}</p>
+                            <p className="font-semibold text-white text-lg">{msg.userName}</p>
                             <div className="flex items-center gap-2 text-sm text-slate-400">
                                 <div className="relative group">
                                     <span className="cursor-help">{getRelativeTime(new Date(msg.createdAt))}</span>
