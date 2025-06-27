@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     WITH agg AS (
       SELECT 
         user_id,
-        user_name,
-        avatar_url,
+        MAX(user_name) as user_name,
+        MAX(avatar_url) as avatar_url,
         SUM(upvotes) as total_upvotes,
         SUM(downvotes) as total_downvotes,
         SUM(yay) as total_yay,
@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
         AND channel_id != 'C0710J7F4U9' 
         AND user_id != 'U023L3A4UKX'
         AND is_placeholder = false
-        and is_placeholder = false
         AND user_id != 'unknown'
         AND user_name != 'Unknown User'
         AND user_name != 'Unknown'
@@ -66,7 +65,7 @@ export async function GET(req: NextRequest) {
   }
 
   queryText += `
-      GROUP BY user_id, user_name, avatar_url
+      GROUP BY user_id
     )
     SELECT 
       agg.user_id,
