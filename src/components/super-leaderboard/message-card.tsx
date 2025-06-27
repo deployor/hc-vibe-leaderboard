@@ -54,6 +54,10 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
     const isSpecificSort = sort !== 'net_score' && sort !== 'createdAt';
     const sortMeta = reactionMeta[sort];
 
+    if (!msg.userName) {
+        return null;
+    }
+
     return (
         <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="bg-slate-800/80 border border-slate-700/50 rounded-xl p-6 backdrop-blur-sm">
@@ -145,4 +149,4 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
             </div>
         </motion.div>
     );
-} 
+}

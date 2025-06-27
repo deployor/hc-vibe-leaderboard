@@ -376,16 +376,16 @@ export default function SuperLeaderboardPage() {
                     </motion.div>
                   )
                 ) : (
-                  users.length > 0 ? (
-                                         <div className="space-y-6">
-                       {users.map((user) => (
-                         <UserCard 
-                           key={user.userId} 
-                           user={user} 
-                           onClick={() => setSelectedUserId(user.userId)}
-                         />
-                       ))}
-                     </div>
+                  users.filter(u => u.userName).length > 0 ? (
+                    <div className="space-y-6">
+                      {users.filter(u => u.userName).map((user) => (
+                        <UserCard
+                          key={user.userId}
+                          user={user}
+                          onClick={() => setSelectedUserId(user.userId)}
+                        />
+                      ))}
+                    </div>
                   ) : (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
@@ -441,4 +441,4 @@ export default function SuperLeaderboardPage() {
       </AnimatePresence>
     </div>
   );
-} 
+}
