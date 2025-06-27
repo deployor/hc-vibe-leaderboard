@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
 import { messages, optedOutUsers, userStats, reactionEvents } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, InferInsertModel } from "drizzle-orm"; // Import InferInsertModel
 import { verifySlackRequest } from "@/lib/slack";
 import { publishHomeView } from "@/lib/app-home";
 import { conversationsHistory, conversationsReplies } from "@/lib/slack-token-cycler";
@@ -225,20 +225,23 @@ async function handleReactionEvent(event: {
   }
 }
 
+// Define the insert type for messages
+type NewMessage = InferInsertModel<typeof messages>;
+
 async function createPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
-  await db.insert(messages).values({
+  const newMessage: NewMessage = {
     messageTs: ts,
     channelId: channel,
     channelName: null,
-    userId: "unknown",
-    userName: "Unknown User",
+    userId: null, // Set to null instead of "unknown"
+    userName: null, // Set to null instead of "Unknown User"
     avatarUrl: null,
-    content: "Loading...",
+    content: "Loading...", // Placeholder content
     threadTs: threadTs || null,
     isThreadReply: isThreadReply || false,
     parentContent: null,
     parentUserName: null,
-    isPlaceholder: true,
+    isPlaceholder: true, // Mark as placeholder
     upvotes: 0,
     downvotes: 0,
     yay: 0,
@@ -256,7 +259,8 @@ async function createPlaceholderMessage(ts: string, channel: string, threadTs?: 
     pingBad: 0,
     totalReactions: 0,
     otherReactions: {},
-  });
+  };
+  await db.insert(messages).values(newMessage);
 }
 
 async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
@@ -493,4 +497,4 @@ async function updateUserReactionStats(reactingUserId: string, reaction: string,
   } catch (error) {
     console.error(`Failed to update user stats for ${reactingUserId}:`, error);
   }
-} 
+}

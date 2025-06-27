@@ -16,8 +16,8 @@ export const messages = pgTable(
     messageTs: text("message_ts").notNull().unique(),
     channelId: text("channel_id").notNull(),
     channelName: text("channel_name"),
-    userId: text("user_id").notNull(),
-    userName: text("user_name").notNull(),
+    userId: text("user_id"), // Made nullable
+    userName: text("user_name"), // Made nullable
     avatarUrl: text("avatar_url"),
     content: text("content").notNull(),
     upvotes: integer("upvotes").default(0).notNull(),
@@ -105,5 +105,4 @@ export const reactionEvents = pgTable("reaction_events", {
   reactionName: text("reaction_name").notNull(),
   eventType: text("event_type").notNull(), // 'added' or 'removed'
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}); 
-
+});

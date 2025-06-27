@@ -159,9 +159,5 @@ const UserProfile = ({ user, onClose }: { user: User, onClose: () => void }) => 
 };
 
 export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () => void }) => {
-    if (!user) {
-        return null;
-    }
-
     return <UserProfile user={user} onClose={onClose} />;
 }

@@ -38,9 +38,6 @@ function getRelativeTime(date: Date): string {
 }
 
 export const UserCard = ({ user, onClick }: { user: User, onClick: () => void }) => {
-    if (!user.userName) {
-        return null;
-    }
     const lastMessageAt = user.lastMessageAt ? new Date(user.lastMessageAt) : null;
     const lastActive = lastMessageAt ? getRelativeTime(lastMessageAt) : 'never';
 
