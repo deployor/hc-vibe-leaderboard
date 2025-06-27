@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
         AND channel_id != 'C0710J7F4U9' 
         AND user_id != 'U023L3A4UKX'
         AND is_placeholder = false
+        and is_placeholder = false
         AND user_id != 'unknown'
         AND user_name != 'Unknown User'
         AND user_name != 'Unknown'

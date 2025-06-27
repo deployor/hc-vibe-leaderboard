@@ -126,9 +126,9 @@ export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () =>
                 <div className="p-8 border-b border-slate-700 flex-shrink-0">
                     <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={24} /></button>
                     <div className="flex items-center gap-6">
-                        <AvatarImage src={user.avatarUrl} alt={user.userName || 'Unknown'} fallbackInitial={(user.userName || '?').charAt(0).toUpperCase()} size={24} />
+                        <AvatarImage src={user.avatarUrl} alt={user.userName || ""} fallbackInitial={(user.userName || "?").charAt(0).toUpperCase()} size={24} />
                         <div>
-                            <h2 className="text-3xl font-bold">{user.userName || 'Unknown User'}</h2>
+                            <h2 className="text-3xl font-bold">{user.userName}</h2>
                             <p className="text-slate-400">Net Score: <span className={`font-bold ${user.netScore > 0 ? "text-emerald-400" : "text-red-400"}`}>{user.netScore > 0 ? '+' : ''}{user.netScore}</span></p>
                         </div>
                     </div>
@@ -156,4 +156,4 @@ export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () =>
             </motion.div>
         </motion.div>
     );
-} 
+}
