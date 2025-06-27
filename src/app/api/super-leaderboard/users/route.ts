@@ -112,6 +112,14 @@ export async function GET(req: NextRequest) {
   // Add search filter
   if (search) {
     queryText += ` WHERE COALESCE(us.user_name, agg.user_name) ILIKE '%${search.replace(/'/g, "''")}%'`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown User'`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown'`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) != ''`;
+  } else {
+    queryText += ` WHERE COALESCE(us.user_name, agg.user_name) != 'Unknown User'`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) != 'Unknown'`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) != ''`;
+    queryText += ` AND COALESCE(us.user_name, agg.user_name) IS NOT NULL`;
   }
 
   // Add sorting
