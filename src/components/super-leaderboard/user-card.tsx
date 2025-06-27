@@ -38,6 +38,10 @@ function getRelativeTime(date: Date): string {
 }
 
 export const UserCard = ({ user, onClick }: { user: User, onClick: () => void }) => {
+    if (!user.userName) {
+        return null;
+    }
+
     return (
         <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             onClick={onClick}

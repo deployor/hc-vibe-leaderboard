@@ -81,7 +81,7 @@ const StatGrid = ({ title, stats, otherReactions }: { title: string, stats: Reco
 );
 
 
-export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () => void }) => {
+const UserProfile = ({ user, onClose }: { user: User, onClose: () => void }) => {
     const [topMessages, setTopMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [sort, setSort] = useState('upvotes');
@@ -156,4 +156,12 @@ export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () =>
             </motion.div>
         </motion.div>
     );
+};
+
+export const UserProfileModal = ({ user, onClose }: { user: User, onClose: () => void }) => {
+    if (!user) {
+        return null;
+    }
+
+    return <UserProfile user={user} onClose={onClose} />;
 }
