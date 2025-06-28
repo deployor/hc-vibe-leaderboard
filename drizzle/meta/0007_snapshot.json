@@ -1,6 +1,6 @@
 {
-  "id": "0f6a0bdf-7691-4fc5-aabb-a69c6d530670",
-  "prevId": "7991c488-8805-4ff6-8cd2-5bb25efe468f",
+  "id": "f54d94b5-f77f-4ea2-9e54-f2af552235b2",
+  "prevId": "0f6a0bdf-7691-4fc5-aabb-a69c6d530670",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -36,7 +36,7 @@
           "name": "user_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "user_name": {
           "name": "user_name",
@@ -54,7 +54,7 @@
           "name": "content",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "upvotes": {
           "name": "upvotes",

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { db } from "@/db";
-import { messages, optedOutUsers, userStats, reactionEvents } from "@/db/schema";
-import { eq, sql, InferInsertModel } from "drizzle-orm"; // Import InferInsertModel
+import { messages, optedOutUsers, userStats, reactionEvents, users } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { verifySlackRequest } from "@/lib/slack";
 import { publishHomeView } from "@/lib/app-home";
 import { conversationsHistory, conversationsReplies } from "@/lib/slack-token-cycler";
@@ -225,23 +225,20 @@ async function handleReactionEvent(event: {
   }
 }
 
-// Define the insert type for messages
-type NewMessage = InferInsertModel<typeof messages>;
-
 async function createPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
-  const newMessage: NewMessage = {
+  await db.insert(messages).values({
     messageTs: ts,
     channelId: channel,
     channelName: null,
-    userId: null, // Set to null instead of "unknown"
-    userName: null, // Set to null instead of "Unknown User"
+    userId: "unknown",
+    userName: "Unknown User",
     avatarUrl: null,
-    content: "Loading...", // Placeholder content
+    content: "Loading...",
     threadTs: threadTs || null,
     isThreadReply: isThreadReply || false,
     parentContent: null,
     parentUserName: null,
-    isPlaceholder: true, // Mark as placeholder
+    isPlaceholder: true,
     upvotes: 0,
     downvotes: 0,
     yay: 0,
@@ -259,8 +256,7 @@ async function createPlaceholderMessage(ts: string, channel: string, threadTs?: 
     pingBad: 0,
     totalReactions: 0,
     otherReactions: {},
-  };
-  await db.insert(messages).values(newMessage);
+  });
 }
 
 async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: string, isThreadReply?: boolean) {
@@ -310,6 +306,23 @@ async function fillPlaceholderMessage(ts: string, channel: string, threadTs?: st
           const userName = userInfo.user?.profile?.display_name || userInfo.user?.name || "Unknown";
           const avatarUrl = userInfo.user?.profile?.image_72;
           const channelName = channelInfo.channel?.name || "unknown-channel";
+
+  // Update or insert user into the users table to keep it fresh
+  await db.insert(users).values({
+    id: messageData.user,
+    name: userName,
+    avatarUrl: avatarUrl,
+    teamId: userInfo.user?.team_id || null, // Assuming team_id is available here
+    updatedAt: new Date(),
+  }).onConflictDoUpdate({
+    target: users.id,
+    set: {
+      name: userName,
+      avatarUrl: avatarUrl,
+      teamId: userInfo.user?.team_id || null,
+      updatedAt: new Date(),
+    }
+  });
 
   await db
     .update(messages)
@@ -445,10 +458,31 @@ async function updateUserReactionStats(reactingUserId: string, reaction: string,
                     // Create new user stats record
        const userInfo = await slack.users.info({ user: reactingUserId });
        if (userInfo.ok && userInfo.user) {
+         const { user } = userInfo;
+         const userName = user.profile?.display_name || user.name || "Unknown";
+         const avatarUrl = user.profile?.image_72;
+
+         // Update or insert user into the users table to keep it fresh
+         await db.insert(users).values({
+           id: reactingUserId,
+           name: userName,
+           avatarUrl: avatarUrl,
+           teamId: user.team_id || null, // Assuming team_id is available here
+           updatedAt: new Date(),
+         }).onConflictDoUpdate({
+           target: users.id,
+           set: {
+             name: userName,
+             avatarUrl: avatarUrl,
+             teamId: user.team_id || null,
+             updatedAt: new Date(),
+           }
+         });
+
          const baseStats = {
            userId: reactingUserId,
-           userName: userInfo.user.profile?.display_name || userInfo.user.name || "Unknown",
-           avatarUrl: userInfo.user.profile?.image_72,
+           userName: userName,
+           avatarUrl: avatarUrl,
            givenUpvotes: 0,
            givenDownvotes: 0,
            givenYay: 0,

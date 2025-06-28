@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import { WebClient } from "@slack/web-api";
 import { db } from "../src/db/index.js";
-import { messages, users, userStats } from "../src/db/schema.js";
+import { messages } from "../src/db/schema.js";
 import { eq, or, isNull } from "drizzle-orm";
 
 // Load environment variables
@@ -49,53 +49,20 @@ async function fixUnknownUsers() {
       const userInfo = await slack.users.info({ user: msg.userId });
       
       if (userInfo.ok && userInfo.user) {
-        const { user } = userInfo;
-        const userName = user.profile?.display_name || user.name || "Unknown";
-        const avatarUrl = user.profile?.image_72;
-        const userId = user.id!;
-        const teamId = user.team_id;
-
-        // Update the message record
+        const userName = userInfo.user.profile?.display_name || userInfo.user.name || "Unknown";
+        const avatarUrl = userInfo.user.profile?.image_72;
+        
+        // Update the message with correct user info
         await db
           .update(messages)
           .set({
-            userName,
-            avatarUrl,
-            isPlaceholder: false,
-            updatedAt: new Date(),
-          })
-          .where(eq(messages.id, msg.id));
-
-        // Upsert into users table
-        await db.insert(users).values({
-          id: userId,
-          teamId: teamId,
-          name: userName,
-          avatarUrl: avatarUrl,
-        }).onConflictDoUpdate({
-          target: users.id,
-          set: {
-            name: userName,
-            avatarUrl: avatarUrl,
-            updatedAt: new Date()
-          }
-        });
-
-        // Upsert into user_stats table
-        await db.insert(userStats).values({
-          userId: userId,
-          userName: userName,
-          avatarUrl: avatarUrl,
-        }).onConflictDoUpdate({
-          target: userStats.userId,
-          set: {
             userName: userName,
             avatarUrl: avatarUrl,
-            updatedAt: new Date()
-          }
-        });
+            updatedAt: new Date(),
+          })
+          .where(eq(messages.messageTs, msg.messageTs));
         
-        console.log(`✅ Fixed and updated all tables for: ${msg.messageTs} -> ${userName}`);
+        console.log(`✅ Fixed: ${msg.messageTs} -> ${userName}`);
         fixed++;
       } else {
         console.log(`❌ Failed to get user info for ${msg.userId}`);
@@ -115,4 +82,4 @@ async function fixUnknownUsers() {
 }
 
 // Run the script
-fixUnknownUsers().catch(console.error);
+fixUnknownUsers().catch(console.error); 

@@ -205,6 +205,7 @@ export default function SuperLeaderboardPage() {
         setHasMore(newMessages.length === PAGE_SIZE);
       } else {
         const newUsers: User[] = await res.json();
+        console.log("Fetched new users:", newUsers); // Add this line
         setUsers(prev => isInitialLoad ? newUsers : [...prev, ...newUsers]);
         setHasMore(newUsers.length === PAGE_SIZE);
       }

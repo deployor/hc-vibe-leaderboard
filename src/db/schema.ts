@@ -18,8 +18,8 @@ export const messages = pgTable(
     channelName: text("channel_name"),
     userId: text("user_id"), // Made nullable
     userName: text("user_name"), // Made nullable
-    avatarUrl: text("avatar_url"),
-    content: text("content").notNull(),
+    avatarUrl: text("avatar_url"), // Already nullable
+    content: text("content"), // Made nullable
     upvotes: integer("upvotes").default(0).notNull(),
     downvotes: integer("downvotes").default(0).notNull(),
     yay: integer("yay").default(0).notNull(),
@@ -59,8 +59,8 @@ export const optedOutUsers = pgTable("opted_out_users", {
 
 export const userStats = pgTable("user_stats", {
   userId: text("user_id").primaryKey(),
-  userName: text("user_name").notNull(),
-  avatarUrl: text("avatar_url"),
+  userName: text("user_name"), // Made nullable
+  avatarUrl: text("avatar_url"), // Already nullable
   givenUpvotes: integer("given_upvotes").default(0).notNull(),
   givenDownvotes: integer("given_downvotes").default(0).notNull(),
   givenYay: integer("given_yay").default(0).notNull(),
@@ -84,8 +84,8 @@ export const userStats = pgTable("user_stats", {
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Slack User ID
   teamId: text("team_id"),
-  name: text("name").notNull(),
-  avatarUrl: text("avatar_url"),
+  name: text("name"), // Made nullable
+  avatarUrl: text("avatar_url"), // Already nullable
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -99,9 +99,11 @@ export const MessageCard = ({ msg, sort }: { msg: Message, sort: string }) => {
                             <p className="font-semibold text-white text-lg">{msg.userName}</p>
                             <div className="flex items-center gap-2 text-sm text-slate-400">
                                 <div className="relative group">
-                                    <span className="cursor-help">{getRelativeTime(new Date(msg.createdAt))}</span>
+                                    <span className="cursor-help">
+                                        {msg.createdAt ? getRelativeTime(new Date(msg.createdAt)) : "N/A"}
+                                    </span>
                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max p-2 bg-slate-900/95 border border-slate-700/50 rounded-lg text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                        {new Date(msg.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                                        {msg.createdAt ? new Date(msg.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : "N/A"}
                                     </div>
                                 </div>
                                 <span className="text-slate-600">&middot;</span>

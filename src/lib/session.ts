@@ -57,7 +57,15 @@ export async function getSession(): Promise<SessionData | null> {
                 name: user.profile?.display_name || user.name || "Unknown",
                 avatarUrl: user.profile?.image_72,
                 updatedAt: new Date(),
-            }).onConflictDoNothing();
+            }).onConflictDoUpdate({
+                target: users.id,
+                set: {
+                    name: user.profile?.display_name || user.name || "Unknown",
+                    avatarUrl: user.profile?.image_72,
+                    teamId: session.teamId,
+                    updatedAt: new Date(),
+                }
+            });
         }
     }
 
@@ -78,4 +86,4 @@ export async function createSession(data: SessionData) {
 
 export async function deleteSession() {
   (await cookies()).delete(sessionOptions.cookieName);
-} 
+}
