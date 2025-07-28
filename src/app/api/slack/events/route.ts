@@ -370,19 +370,10 @@ async function resyncMessageReactions(ts: string, channel: string): Promise<void
 
         const category = getReactionCategory(reactionItem.name);
         if (category) {
-          // Handle special case for upvotes (need to get actual user list)
-          if (category === "upvotes") {
-            const upvoterIds = new Set<string>();
-            if (reactionItem.users) {
-              reactionItem.users.forEach(u => upvoterIds.add(u));
-            }
-            counts.upvotes = upvoterIds.size;
-          } else {
-            counts[category as keyof Omit<ReactionCounts, 'otherReactions' | 'totalReactions'>] = reactionItem.count;
-          }
+          counts[category as keyof Omit<ReactionCounts, 'otherReactions' | 'totalReactions'>] += reactionItem.count;
         } else {
           // Track other reactions in JSON field
-          counts.otherReactions[reactionItem.name] = reactionItem.count;
+          counts.otherReactions[reactionItem.name] = (counts.otherReactions[reactionItem.name] || 0) + reactionItem.count;
         }
         
         counts.totalReactions += reactionItem.count;
